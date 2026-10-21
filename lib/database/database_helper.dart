@@ -7,19 +7,23 @@ class DatabaseHelper {
 
   static final DatabaseHelper instance = DatabaseHelper._internal();
 
-  static Database? _database;
+  static Future<Database>? _databaseFuture;
 
   static const String databaseName = 'adaptive_focus_studio.db';
   static const int databaseVersion = 1;
 
   // Return the existing database or open it once.
-  Future<Database> get database async {
-    if (_database != null && _database!.isOpen) {
-      return _database!;
-    }
+  Future<Database> get database {
+    return _databaseFuture ??= _openDatabaseSafely();
+  }
 
-    _database = await _initializeDatabase();
-    return _database!;
+  Future<Database> _openDatabaseSafely() async {
+    try {
+      return await _initializeDatabase();
+    } catch (_) {
+      _databaseFuture = null;
+      rethrow;
+    }
   }
 
   // Open the SQLite database stored on the device.
