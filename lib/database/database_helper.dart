@@ -33,8 +33,34 @@ class DatabaseHelper {
       onConfigure: (db) async {
         await db.execute('PRAGMA foreign_keys = ON');
       },
+
       onCreate: (db, version) async {
-        // Table creation will be added in the next step.
+        // Create the parent table for reusable focus presets.
+        await db.execute('''
+    CREATE TABLE FocusPreset (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      label TEXT NOT NULL CHECK(length(trim(label)) > 0),
+      moodTag TEXT NOT NULL,
+      plannedSeconds INTEGER NOT NULL CHECK(plannedSeconds > 0)
+    )
+  ''');
+
+        // Create the child table for session history.
+        await db.execute('''
+    CREATE TABLE SessionLog (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      presetId INTEGER NOT NULL,
+      startedAt INTEGER NOT NULL,
+      completedSeconds INTEGER NOT NULL CHECK(completedSeconds >= 0),
+      moodTagSnapshot TEXT NOT NULL,
+      status TEXT NOT NULL,
+      source TEXT NOT NULL,
+      note TEXT,
+      FOREIGN KEY (presetId)
+        REFERENCES FocusPreset(id)
+        ON DELETE RESTRICT
+    )
+  ''');
       },
     );
   }
