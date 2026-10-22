@@ -80,6 +80,69 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
     _startTimer();
   }
 
+  void _finishSession() {
+    if (_isFinished) {
+      return;
+    }
+
+    _timer?.cancel();
+
+    setState(() {
+      _isRunning = false;
+      _isPaused = false;
+      _isFinished = true;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Session finished.'),
+      ),
+    );
+  }
+
+  Future<void> _showResetDialog() async {
+    final shouldReset = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Reset Session?'),
+          content: const Text(
+            'This will reset the timer back to the planned duration.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context, false);
+              },
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context, true);
+              },
+              child: const Text('Reset'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldReset == true && mounted) {
+      _resetSession();
+    }
+  }
+
+  void _resetSession() {
+    _timer?.cancel();
+
+    setState(() {
+      _remainingSeconds = _plannedSeconds;
+      _isRunning = false;
+      _isPaused = false;
+      _isFinished = false;
+    });
+  }
+
   String _formatTime(int seconds) {
     final minutes = seconds ~/ 60;
     final remainingSeconds = seconds % 60;
@@ -106,6 +169,13 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
 
   double _getProgress() {
     return 1 - (_remainingSeconds / _plannedSeconds);
+  }
+
+  bool _hasSessionStarted() {
+    return _remainingSeconds < _plannedSeconds ||
+        _isRunning ||
+        _isPaused ||
+        _isFinished;
   }
 
   @override
@@ -198,7 +268,9 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
             const SizedBox(height: 12),
 
             OutlinedButton.icon(
-              onPressed: null,
+              onPressed: _hasSessionStarted() && !_isFinished
+                  ? _finishSession
+                  : null,
               icon: const Icon(Icons.check),
               label: const Text('Finish'),
             ),
@@ -206,7 +278,7 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> {
             const SizedBox(height: 12),
 
             TextButton.icon(
-              onPressed: null,
+              onPressed: _hasSessionStarted() ? _showResetDialog : null,
               icon: const Icon(Icons.refresh),
               label: const Text('Reset'),
             ),
