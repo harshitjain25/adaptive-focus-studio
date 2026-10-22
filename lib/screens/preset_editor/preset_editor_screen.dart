@@ -68,7 +68,7 @@ class _PresetEditorScreenState extends State<PresetEditorScreen> {
               const SizedBox(height: 20),
 
               DropdownButtonFormField<String>(
-                value: _selectedMood,
+                initialValue: _selectedMood,
                 decoration: const InputDecoration(
                   labelText: 'Mood',
                   border: OutlineInputBorder(),
