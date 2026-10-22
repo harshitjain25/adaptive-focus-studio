@@ -36,4 +36,69 @@ void main() {
 
     expect(result.first['foreign_keys'], 1);
   });
+
+  test('Rejects preset with invalid duration', () async {
+    final db = await DatabaseHelper.instance.database;
+
+    expect(
+      () async => db.insert('FocusPreset', {
+        'label': 'Invalid Preset',
+        'moodTag': 'Calm',
+        'plannedSeconds': -10,
+      }),
+      throwsA(isA<DatabaseException>()),
+    );
+  });
+
+  test('Rejects session with invalid preset reference', () async {
+    final db = await DatabaseHelper.instance.database;
+
+    expect(
+      () async => db.insert('SessionLog', {
+        'presetId': -999,
+        'startedAt': DateTime.now().millisecondsSinceEpoch,
+        'completedSeconds': 1200,
+        'moodTagSnapshot': 'Calm',
+        'status': 'finished',
+        'source': 'timer',
+        'note': null,
+      }),
+      throwsA(isA<DatabaseException>()),
+    );
+  });
+
+  test('Prevents deleting preset with linked sessions', () async {
+    final db = await DatabaseHelper.instance.database;
+
+    final presetId = await db.insert('FocusPreset', {
+      'label': 'Study Session',
+      'moodTag': 'Focused',
+      'plannedSeconds': 1500,
+    });
+
+    await db.insert('SessionLog', {
+      'presetId': presetId,
+      'startedAt': DateTime.now().millisecondsSinceEpoch,
+      'completedSeconds': 1200,
+      'moodTagSnapshot': 'Focused',
+      'status': 'finished',
+      'source': 'timer',
+      'note': null,
+    });
+
+    expect(
+      () async =>
+          db.delete('FocusPreset', where: 'id = ?', whereArgs: [presetId]),
+      throwsA(isA<DatabaseException>()),
+    );
+
+    // Verify that the parent record still exists.
+    final presets = await db.query(
+      'FocusPreset',
+      where: 'id = ?',
+      whereArgs: [presetId],
+    );
+
+    expect(presets.length, 1);
+  });
 }
