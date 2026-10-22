@@ -81,7 +81,7 @@ class DashboardScreen extends StatelessWidget {
             const SizedBox(height: 8),
 
             DropdownButtonFormField<String>(
-              value: 'All',
+              initialValue: 'All',
               items: const [
                 DropdownMenuItem(
                   value: 'All',
