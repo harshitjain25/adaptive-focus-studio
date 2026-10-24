@@ -45,25 +45,87 @@ class SQLiteSessionLogRepository implements SessionLogRepository {
     return results.map((row) => SessionLog.fromMap(row)).toList();
   }
 
-  @override
-  Future<SessionLog?> getSessionLogById(int id) {
-    throw UnimplementedError();
+  
+@override
+Future<SessionLog?> getSessionLogById(int id) async {
+  final db = await _databaseHelper.database;
+
+  final results = await db.query(
+    'SessionLog',
+    where: 'id = ?',
+    whereArgs: [id],
+    limit: 1,
+  );
+
+  if (results.isEmpty) {
+    return null;
   }
 
-  @override
-  Future<List<SessionLog>> getSessionsByPreset(int presetId) {
-    throw UnimplementedError();
+  return SessionLog.fromMap(results.first);
+}
+
+
+  
+@override
+Future<List<SessionLog>> getSessionsByPreset(int presetId) async {
+  final db = await _databaseHelper.database;
+
+  final results = await db.query(
+    'SessionLog',
+    where: 'presetId = ?',
+    whereArgs: [presetId],
+    orderBy: 'startedAt DESC, id DESC',
+  );
+
+  return results.map((row) => SessionLog.fromMap(row)).toList();
+}
+
+
+  
+@override
+Future<int> updateSessionLog(SessionLog log) async {
+  if (log.id == null) {
+    throw ArgumentError('Session log ID is required for updating.');
   }
 
-  @override
-  Future<int> updateSessionLog(SessionLog log) {
-    throw UnimplementedError();
+  if (log.presetId <= 0) {
+    throw ArgumentError('A valid preset ID is required.');
   }
 
-  @override
-  Future<int> deleteSessionLog(int id) {
-    throw UnimplementedError();
+  if (log.completedSeconds < 0) {
+    throw ArgumentError('Completed seconds cannot be negative.');
   }
+
+  if (log.moodTagSnapshot.trim().isEmpty) {
+    throw ArgumentError('Mood tag cannot be empty.');
+  }
+
+  final db = await _databaseHelper.database;
+
+  final data = log.toMap();
+  data.remove('id');
+
+  return db.update(
+    'SessionLog',
+    data,
+    where: 'id = ?',
+    whereArgs: [log.id],
+  );
+}
+
+
+  
+@override
+Future<int> deleteSessionLog(int id) async {
+  final db = await _databaseHelper.database;
+
+  return db.delete(
+    'SessionLog',
+    where: 'id = ?',
+    whereArgs: [id],
+  );
+}
+
 
   @override
   Future<List<SessionLog>> getRecentFinishedSessions({
