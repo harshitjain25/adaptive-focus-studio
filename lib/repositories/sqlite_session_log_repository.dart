@@ -45,93 +45,98 @@ class SQLiteSessionLogRepository implements SessionLogRepository {
     return results.map((row) => SessionLog.fromMap(row)).toList();
   }
 
-  
-@override
-Future<SessionLog?> getSessionLogById(int id) async {
-  final db = await _databaseHelper.database;
+  @override
+  Future<SessionLog?> getSessionLogById(int id) async {
+    final db = await _databaseHelper.database;
 
-  final results = await db.query(
-    'SessionLog',
-    where: 'id = ?',
-    whereArgs: [id],
-    limit: 1,
-  );
+    final results = await db.query(
+      'SessionLog',
+      where: 'id = ?',
+      whereArgs: [id],
+      limit: 1,
+    );
 
-  if (results.isEmpty) {
-    return null;
+    if (results.isEmpty) {
+      return null;
+    }
+
+    return SessionLog.fromMap(results.first);
   }
 
-  return SessionLog.fromMap(results.first);
-}
+  @override
+  Future<List<SessionLog>> getSessionsByPreset(int presetId) async {
+    final db = await _databaseHelper.database;
 
+    final results = await db.query(
+      'SessionLog',
+      where: 'presetId = ?',
+      whereArgs: [presetId],
+      orderBy: 'startedAt DESC, id DESC',
+    );
 
-  
-@override
-Future<List<SessionLog>> getSessionsByPreset(int presetId) async {
-  final db = await _databaseHelper.database;
-
-  final results = await db.query(
-    'SessionLog',
-    where: 'presetId = ?',
-    whereArgs: [presetId],
-    orderBy: 'startedAt DESC, id DESC',
-  );
-
-  return results.map((row) => SessionLog.fromMap(row)).toList();
-}
-
-
-  
-@override
-Future<int> updateSessionLog(SessionLog log) async {
-  if (log.id == null) {
-    throw ArgumentError('Session log ID is required for updating.');
+    return results.map((row) => SessionLog.fromMap(row)).toList();
   }
 
-  if (log.presetId <= 0) {
-    throw ArgumentError('A valid preset ID is required.');
+  @override
+  Future<int> updateSessionLog(SessionLog log) async {
+    if (log.id == null) {
+      throw ArgumentError('Session log ID is required for updating.');
+    }
+
+    if (log.presetId <= 0) {
+      throw ArgumentError('A valid preset ID is required.');
+    }
+
+    if (log.completedSeconds < 0) {
+      throw ArgumentError('Completed seconds cannot be negative.');
+    }
+
+    if (log.moodTagSnapshot.trim().isEmpty) {
+      throw ArgumentError('Mood tag cannot be empty.');
+    }
+
+    final db = await _databaseHelper.database;
+
+    final data = log.toMap();
+    data.remove('id');
+
+    return db.update('SessionLog', data, where: 'id = ?', whereArgs: [log.id]);
   }
 
-  if (log.completedSeconds < 0) {
-    throw ArgumentError('Completed seconds cannot be negative.');
+  @override
+  Future<int> deleteSessionLog(int id) async {
+    final db = await _databaseHelper.database;
+
+    return db.delete('SessionLog', where: 'id = ?', whereArgs: [id]);
   }
-
-  if (log.moodTagSnapshot.trim().isEmpty) {
-    throw ArgumentError('Mood tag cannot be empty.');
-  }
-
-  final db = await _databaseHelper.database;
-
-  final data = log.toMap();
-  data.remove('id');
-
-  return db.update(
-    'SessionLog',
-    data,
-    where: 'id = ?',
-    whereArgs: [log.id],
-  );
-}
-
-
-  
-@override
-Future<int> deleteSessionLog(int id) async {
-  final db = await _databaseHelper.database;
-
-  return db.delete(
-    'SessionLog',
-    where: 'id = ?',
-    whereArgs: [id],
-  );
-}
-
 
   @override
   Future<List<SessionLog>> getRecentFinishedSessions({
     required String moodTag,
     int limit = 3,
-  }) {
-    throw UnimplementedError();
+  }) async {
+    if (moodTag.trim().isEmpty) {
+      throw ArgumentError('Mood tag cannot be empty.');
+    }
+
+    if (limit <= 0) {
+      throw ArgumentError('Limit must be greater than zero.');
+    }
+
+    final db = await _databaseHelper.database;
+
+    final results = await db.query(
+      'SessionLog',
+      where: '''
+      moodTagSnapshot = ?
+      AND status = ?
+      AND completedSeconds > 0
+    ''',
+      whereArgs: [moodTag, 'finished'],
+      orderBy: 'startedAt DESC, id DESC',
+      limit: limit,
+    );
+
+    return results.map((row) => SessionLog.fromMap(row)).toList();
   }
 }
