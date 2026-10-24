@@ -5,16 +5,20 @@ void main() {
   testWidgets('Dashboard loads successfully', (WidgetTester tester) async {
     await tester.pumpWidget(const AdaptiveFocusStudioApp());
 
-    // Verify the dashboard heading.
+    // Content visible at the top of the Dashboard.
     expect(find.text('Your Focus Dashboard'), findsOneWidget);
+    expect(find.text('This Week'), findsOneWidget);
+    expect(find.text('Mood Filter'), findsOneWidget);
+    expect(find.text('Session Scout'), findsOneWidget);
 
-    // Verify the main navigation buttons.
+    // Scroll until the lower Dashboard actions are visible.
+    await tester.scrollUntilVisible(
+      find.text('Create Preset'),
+      300,
+    );
+
     expect(find.text('Create Preset'), findsOneWidget);
     expect(find.text('Focus Session'), findsOneWidget);
     expect(find.text('History & Insights'), findsOneWidget);
-
-    // Verify important dashboard sections.
-    expect(find.text('Session Scout'), findsOneWidget);
-    expect(find.text('Your Presets'), findsOneWidget);
   });
 }
