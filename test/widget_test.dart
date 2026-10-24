@@ -5,10 +5,16 @@ void main() {
   testWidgets('Dashboard loads successfully', (WidgetTester tester) async {
     await tester.pumpWidget(const AdaptiveFocusStudioApp());
 
-    expect(find.text('Dashboard'), findsOneWidget);
+    // Verify the dashboard heading.
+    expect(find.text('Your Focus Dashboard'), findsOneWidget);
+
+    // Verify the main navigation buttons.
     expect(find.text('Create Preset'), findsOneWidget);
     expect(find.text('Focus Session'), findsOneWidget);
     expect(find.text('History & Insights'), findsOneWidget);
-    expect(find.text('Settings'), findsOneWidget);
+
+    // Verify important dashboard sections.
+    expect(find.text('Session Scout'), findsOneWidget);
+    expect(find.text('Your Presets'), findsOneWidget);
   });
 }
