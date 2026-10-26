@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../services/session_export_service.dart';
+
 class HistoryScreen extends StatefulWidget {
   const HistoryScreen({super.key});
 
@@ -8,6 +10,8 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
+  final SessionExportService _exportService = SessionExportService();
+
   String _selectedMood = 'All';
 
   final List<String> _moods = [
@@ -17,6 +21,37 @@ class _HistoryScreenState extends State<HistoryScreen> {
     'Tired',
     'Motivated',
   ];
+
+  Future<void> _exportSummary() async {
+    try {
+      final file = await _exportService.exportSummary(
+        totalSessions: 0,
+        averageMinutes: 0,
+        selectedMood: _selectedMood,
+        scoutBaselineMinutes: 25,
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Summary exported successfully:\n${file.path}',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Export failed: $error',
+          ),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,12 +88,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   SizedBox(height: 8),
                   Text(
                     'No completed sessions yet',
-                    style: TextStyle(fontSize: 16),
+                    style: TextStyle(
+                      fontSize: 16,
+                    ),
                   ),
                   SizedBox(height: 4),
                   Text(
                     'Sample count: 0',
-                    style: TextStyle(fontSize: 14),
+                    style: TextStyle(
+                      fontSize: 14,
+                    ),
                   ),
                 ],
               ),
@@ -74,13 +113,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
               border: OutlineInputBorder(),
             ),
             items: _moods.map((mood) {
-              return DropdownMenuItem(
+              return DropdownMenuItem<String>(
                 value: mood,
                 child: Text(mood),
               );
             }).toList(),
             onChanged: (value) {
-              if (value == null) return;
+              if (value == null) {
+                return;
+              }
 
               setState(() {
                 _selectedMood = value;
@@ -124,6 +165,24 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   ),
                 ],
               ),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          ElevatedButton.icon(
+            onPressed: _exportSummary,
+            icon: const Icon(Icons.download),
+            label: const Text('Export Session Summary'),
+          ),
+
+          const SizedBox(height: 12),
+
+          const Text(
+            'The exported file is stored locally on this device.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
             ),
           ),
         ],
