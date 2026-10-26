@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+
+import '../../models/session_log.dart';
+import '../../smart_helper/session_scout.dart';
 import '../../widgets/preset_card.dart';
+import '../../widgets/session_scout_card.dart';
 import '../focus_session/focus_session_screen.dart';
 import '../history/history_screen.dart';
 import '../preset_editor/preset_editor_screen.dart';
@@ -10,6 +14,38 @@ class DashboardScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final sampleSessions = [
+      SessionLog(
+        presetId: 1,
+        startedAt: DateTime(2026, 10, 20),
+        completedSeconds: 20 * 60,
+        moodTagSnapshot: 'Focused',
+        status: 'finished',
+        source: 'timer',
+      ),
+      SessionLog(
+        presetId: 1,
+        startedAt: DateTime(2026, 10, 21),
+        completedSeconds: 30 * 60,
+        moodTagSnapshot: 'Focused',
+        status: 'finished',
+        source: 'timer',
+      ),
+      SessionLog(
+        presetId: 1,
+        startedAt: DateTime(2026, 10, 22),
+        completedSeconds: 25 * 60,
+        moodTagSnapshot: 'Focused',
+        status: 'finished',
+        source: 'timer',
+      ),
+    ];
+
+    final suggestedMinutes = SessionScout.suggestDuration(
+      sessions: sampleSessions,
+      moodTag: 'Focused',
+    );
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Adaptive Focus Studio'),
@@ -38,37 +74,32 @@ class DashboardScreen extends StatelessWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
+
             const SizedBox(height: 8),
 
             const Text(
               'Plan a session, stay focused, and review your progress.',
-              style: TextStyle(fontSize: 16),
+              style: TextStyle(
+                fontSize: 16,
+              ),
             ),
 
             const SizedBox(height: 24),
 
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      'This Week',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
+            SessionScoutCard(
+              suggestedMinutes: suggestedMinutes,
+              onApply: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'Suggested duration: $suggestedMinutes minutes',
                     ),
-                    SizedBox(height: 12),
-                    Text('Completed sessions: 0'),
-                    Text('Average session: No data yet'),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
             const Text(
               'Mood Filter',
@@ -108,28 +139,6 @@ class DashboardScreen extends StatelessWidget {
 
             const SizedBox(height: 24),
 
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text(
-                      'Session Scout',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text('Not enough history'),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
             const Text(
               'Your Presets',
               style: TextStyle(
@@ -140,62 +149,63 @@ class DashboardScreen extends StatelessWidget {
 
             const SizedBox(height: 8),
 
-           PresetCard(
-  label: 'Machine Learning Study',
-  mood: 'Focused',
-  durationMinutes: 25,
-  onTap: () {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const FocusSessionScreen(),
-      ),
-    );
-  },
-  onEdit: () {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const PresetEditorScreen(),
-      ),
-    );
-  },
-  onDelete: () {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Delete Preset?'),
-          content: const Text(
-            'This preset cannot be deleted if it still has session history.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Delete will be connected to the repository later.',
-                    ),
+            PresetCard(
+              label: 'Machine Learning Study',
+              mood: 'Focused',
+              durationMinutes: 25,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const FocusSessionScreen(),
                   ),
                 );
               },
-              child: const Text('Delete'),
+              onEdit: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const PresetEditorScreen(),
+                  ),
+                );
+              },
+              onDelete: () {
+                showDialog(
+                  context: context,
+                  builder: (context) {
+                    return AlertDialog(
+                      title: const Text('Delete Preset?'),
+                      content: const Text(
+                        'This preset cannot be deleted if it still has session history.',
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                          },
+                          child: const Text('Cancel'),
+                        ),
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Delete will be connected to the repository later.',
+                                ),
+                              ),
+                            );
+                          },
+                          child: const Text('Delete'),
+                        ),
+                      ],
+                    );
+                  },
+                );
+              },
             ),
-          ],
-        );
-      },
-    );
-  },
-),
+
             const SizedBox(height: 20),
 
             ElevatedButton.icon(

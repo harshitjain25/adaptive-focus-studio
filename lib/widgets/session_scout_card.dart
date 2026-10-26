@@ -27,6 +27,7 @@ class SessionScoutCard extends StatelessWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
+
             const SizedBox(height: 8),
 
             if (!hasSuggestion)
@@ -42,11 +43,15 @@ class SessionScoutCard extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                 ),
               ),
+
               const SizedBox(height: 6),
+
               const Text(
                 'Based on your 3 most recent finished sessions with the same mood.',
               ),
+
               const SizedBox(height: 12),
+
               ElevatedButton(
                 onPressed: onApply,
                 child: const Text('Apply'),
