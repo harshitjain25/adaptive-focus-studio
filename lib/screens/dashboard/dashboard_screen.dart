@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import '../../widgets/preset_card.dart';
 import '../focus_session/focus_session_screen.dart';
 import '../history/history_screen.dart';
 import '../preset_editor/preset_editor_screen.dart';
@@ -140,16 +140,62 @@ class DashboardScreen extends StatelessWidget {
 
             const SizedBox(height: 8),
 
-            const Card(
-              child: ListTile(
-                leading: Icon(Icons.menu_book),
-                title: Text('No presets yet'),
-                subtitle: Text(
-                  'Create your first focus preset to get started.',
-                ),
-              ),
+           PresetCard(
+  label: 'Machine Learning Study',
+  mood: 'Focused',
+  durationMinutes: 25,
+  onTap: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const FocusSessionScreen(),
+      ),
+    );
+  },
+  onEdit: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const PresetEditorScreen(),
+      ),
+    );
+  },
+  onDelete: () {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete Preset?'),
+          content: const Text(
+            'This preset cannot be deleted if it still has session history.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+              },
+              child: const Text('Cancel'),
             ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
 
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Delete will be connected to the repository later.',
+                    ),
+                  ),
+                );
+              },
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+  },
+),
             const SizedBox(height: 20),
 
             ElevatedButton.icon(
