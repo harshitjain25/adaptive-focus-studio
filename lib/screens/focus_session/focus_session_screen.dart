@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/settings_provider.dart';
 import '../../providers/timer_provider.dart';
+import '../../services/notification_service.dart';
 
 class FocusSessionScreen extends ConsumerStatefulWidget {
   const FocusSessionScreen({super.key});
@@ -98,6 +99,37 @@ class _FocusSessionScreenState extends ConsumerState<FocusSessionScreen>
     _completionController.forward(from: 0);
   }
 
+  Future<void> _showCompletionNotificationIfEnabled() async {
+    final settingsAsync = ref.read(settingsProvider);
+
+    final remindersEnabled = settingsAsync.maybeWhen(
+      data: (settings) => settings.remindersEnabled,
+      orElse: () => false,
+    );
+
+    if (!remindersEnabled) {
+      return;
+    }
+
+    await NotificationService.instance.showFocusCompleteNotification();
+  }
+
+  Future<void> _finishSession() async {
+    ref.read(focusTimerProvider.notifier).finish();
+
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Session finished.',
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _completionController.dispose();
@@ -122,6 +154,7 @@ class _FocusSessionScreenState extends ConsumerState<FocusSessionScreen>
         if (previous?.status != TimerStatus.finished &&
             next.status == TimerStatus.finished) {
           _playCompletionAnimation(reducedMotion);
+          _showCompletionNotificationIfEnabled();
         }
 
         if (next.status == TimerStatus.idle) {
@@ -252,15 +285,7 @@ class _FocusSessionScreenState extends ConsumerState<FocusSessionScreen>
             OutlinedButton.icon(
               onPressed: timerState.hasStarted &&
                       timerState.status != TimerStatus.finished
-                  ? () {
-                      timerNotifier.finish();
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Session finished.'),
-                        ),
-                      );
-                    }
+                  ? _finishSession
                   : null,
               icon: const Icon(Icons.check),
               label: const Text('Finish'),
@@ -269,9 +294,8 @@ class _FocusSessionScreenState extends ConsumerState<FocusSessionScreen>
             const SizedBox(height: 12),
 
             TextButton.icon(
-              onPressed: timerState.hasStarted
-                  ? _showResetDialog
-                  : null,
+              onPressed:
+                  timerState.hasStarted ? _showResetDialog : null,
               icon: const Icon(Icons.refresh),
               label: const Text('Reset'),
             ),
