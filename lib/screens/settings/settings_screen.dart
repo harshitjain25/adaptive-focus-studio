@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
+import '../../services/notification_service.dart';
 import '../../providers/settings_provider.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -69,17 +69,48 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 16),
 
               SwitchListTile(
-                title: const Text('Reduced Motion'),
-                subtitle: const Text(
-                  'Use fewer animations throughout the app.',
-                ),
-                value: settings.reducedMotion,
-                onChanged: (value) {
-                  ref
-                      .read(settingsProvider.notifier)
-                      .setReducedMotion(value);
-                },
-              ),
+  title: const Text('Session Reminders'),
+  subtitle: const Text(
+    'Allow local notifications for focus sessions.',
+  ),
+  value: settings.remindersEnabled,
+  onChanged: (value) async {
+    if (value) {
+      final granted =
+          await NotificationService.instance.requestPermission();
+
+      if (!context.mounted) return;
+
+      if (!granted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Notification permission was not granted.',
+            ),
+          ),
+        );
+
+        return;
+      }
+    }
+
+    await ref
+        .read(settingsProvider.notifier)
+        .setRemindersEnabled(value);
+
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          value
+              ? 'Session reminders enabled.'
+              : 'Session reminders disabled.',
+        ),
+      ),
+    );
+  },
+),
 
               const Divider(),
 
