@@ -92,7 +92,9 @@ class FocusSessionScreen extends ConsumerWidget {
             const Text(
               'Mood: Focused',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16),
+              style: TextStyle(
+                fontSize: 16,
+              ),
             ),
 
             const SizedBox(height: 40),
@@ -114,10 +116,32 @@ class FocusSessionScreen extends ConsumerWidget {
 
             const SizedBox(height: 16),
 
-            Text(
-              _getStatusText(timerState.status),
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 16),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              padding: const EdgeInsets.symmetric(
+                vertical: 12,
+                horizontal: 16,
+              ),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                color: timerState.status == TimerStatus.running
+                    ? Colors.green.withValues(alpha: 0.12)
+
+
+                    : timerState.status == TimerStatus.paused
+                        ? Colors.orange.withValues(alpha: 0.12)
+                        : timerState.status == TimerStatus.finished
+                            ? Colors.blue.withValues(alpha: 0.12)
+                            : Colors.grey.withValues(alpha: 0.10),
+              ),
+              child: Text(
+                _getStatusText(timerState.status),
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ),
 
             const Spacer(),
