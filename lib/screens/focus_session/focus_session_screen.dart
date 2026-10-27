@@ -31,23 +31,29 @@ class _FocusSessionScreenState
   bool _sessionSaved = false;
 
   @override
-  void initState() {
-    super.initState();
+void initState() {
+  super.initState();
 
-    _completionController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 500),
-    );
+  _completionController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 500),
+  );
 
-    _completionScale = CurvedAnimation(
-      parent: _completionController,
-      curve: Curves.easeOutBack,
-    );
+  _completionScale = CurvedAnimation(
+    parent: _completionController,
+    curve: Curves.easeOutBack,
+  );
+
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    if (!mounted) {
+      return;
+    }
 
     ref
         .read(focusTimerProvider.notifier)
         .configure(widget.preset.plannedSeconds);
-  }
+  });
+}
 
   String _formatTime(int seconds) {
     final minutes = seconds ~/ 60;
