@@ -1,18 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-class PresetEditorScreen extends StatefulWidget {
-  const PresetEditorScreen({super.key});
+import '../../models/focus_preset.dart';
+import '../../providers/repository_providers.dart';
+
+class PresetEditorScreen extends ConsumerStatefulWidget {
+  final FocusPreset? preset;
+
+  const PresetEditorScreen({
+    super.key,
+    this.preset,
+  });
 
   @override
-  State<PresetEditorScreen> createState() => _PresetEditorScreenState();
+  ConsumerState<PresetEditorScreen> createState() =>
+      _PresetEditorScreenState();
 }
 
-class _PresetEditorScreenState extends State<PresetEditorScreen> {
+class _PresetEditorScreenState
+    extends ConsumerState<PresetEditorScreen> {
   final _formKey = GlobalKey<FormState>();
   final _labelController = TextEditingController();
 
   String? _selectedMood;
   double _durationMinutes = 25;
+  bool _isSaving = false;
 
   final List<String> _moods = [
     'Focused',
@@ -21,19 +33,97 @@ class _PresetEditorScreenState extends State<PresetEditorScreen> {
     'Motivated',
   ];
 
+  bool get _isEditing => widget.preset != null;
+
+  @override
+  void initState() {
+    super.initState();
+
+    final preset = widget.preset;
+
+    if (preset != null) {
+      _labelController.text = preset.label;
+      _selectedMood = preset.moodTag;
+      _durationMinutes = preset.plannedSeconds / 60;
+    }
+  }
+
   @override
   void dispose() {
     _labelController.dispose();
     super.dispose();
   }
 
-  void _savePreset() {
-    if (_formKey.currentState!.validate()) {
+  Future<void> _savePreset() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    if (_selectedMood == null) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      final repository = ref.read(focusPresetRepositoryProvider);
+
+      final preset = FocusPreset(
+        id: widget.preset?.id,
+        label: _labelController.text.trim(),
+        moodTag: _selectedMood!,
+        plannedSeconds: _durationMinutes.round() * 60,
+      );
+
+      if (_isEditing) {
+        final updatedRows = await repository.updatePreset(preset);
+
+        if (updatedRows == 0) {
+          throw Exception('Preset could not be updated.');
+        }
+      } else {
+        final newId = await repository.createPreset(preset);
+
+        if (newId <= 0) {
+          throw Exception('Preset could not be created.');
+        }
+      }
+
+      if (!mounted) {
+        return;
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Preset is valid and ready to save.'),
+        SnackBar(
+          content: Text(
+            _isEditing
+                ? 'Preset updated successfully.'
+                : 'Preset created successfully.',
+          ),
         ),
       );
+
+      Navigator.pop(context, true);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Unable to save preset: $error',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
     }
   }
 
@@ -41,7 +131,11 @@ class _PresetEditorScreenState extends State<PresetEditorScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Create Focus Preset'),
+        title: Text(
+          _isEditing
+              ? 'Edit Focus Preset'
+              : 'Create Focus Preset',
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -51,6 +145,7 @@ class _PresetEditorScreenState extends State<PresetEditorScreen> {
             children: [
               TextFormField(
                 controller: _labelController,
+                enabled: !_isSaving,
                 decoration: const InputDecoration(
                   labelText: 'Preset Name',
                   hintText: 'Example: Machine Learning Study',
@@ -74,16 +169,18 @@ class _PresetEditorScreenState extends State<PresetEditorScreen> {
                   border: OutlineInputBorder(),
                 ),
                 items: _moods.map((mood) {
-                  return DropdownMenuItem(
+                  return DropdownMenuItem<String>(
                     value: mood,
                     child: Text(mood),
                   );
                 }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _selectedMood = value;
-                  });
-                },
+                onChanged: _isSaving
+                    ? null
+                    : (value) {
+                        setState(() {
+                          _selectedMood = value;
+                        });
+                      },
                 validator: (value) {
                   if (value == null) {
                     return 'Please select a mood.';
@@ -109,26 +206,42 @@ class _PresetEditorScreenState extends State<PresetEditorScreen> {
                 max: 60,
                 divisions: 10,
                 label: '${_durationMinutes.round()} min',
-                onChanged: (value) {
-                  setState(() {
-                    _durationMinutes = value;
-                  });
-                },
+                onChanged: _isSaving
+                    ? null
+                    : (value) {
+                        setState(() {
+                          _durationMinutes = value;
+                        });
+                      },
               ),
 
               const SizedBox(height: 24),
 
               ElevatedButton(
-                onPressed: _savePreset,
-                child: const Text('Save Preset'),
+                onPressed: _isSaving ? null : _savePreset,
+                child: _isSaving
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : Text(
+                        _isEditing
+                            ? 'Update Preset'
+                            : 'Save Preset',
+                      ),
               ),
 
               const SizedBox(height: 12),
 
               OutlinedButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                },
+                onPressed: _isSaving
+                    ? null
+                    : () {
+                        Navigator.pop(context);
+                      },
                 child: const Text('Cancel'),
               ),
             ],
