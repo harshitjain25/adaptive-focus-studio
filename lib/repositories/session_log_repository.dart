@@ -19,6 +19,13 @@ abstract class SessionLogRepository {
   // Delete a session log.
   Future<int> deleteSessionLog(int id);
 
+  // Calculate the average completed duration in seconds.
+  // Returns null if no valid finished sessions exist.
+  Future<double?> getAverageCompletedSeconds({String? moodTag});
+
+  // Count valid finished sessions.
+  Future<int> getFinishedSessionCount({String? moodTag});
+
   // Retrieve the most recent finished sessions for a mood.
   Future<List<SessionLog>> getRecentFinishedSessions({
     required String moodTag,

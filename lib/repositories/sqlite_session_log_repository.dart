@@ -8,6 +8,54 @@ class SQLiteSessionLogRepository implements SessionLogRepository {
   SQLiteSessionLogRepository({DatabaseHelper? databaseHelper})
     : _databaseHelper = databaseHelper ?? DatabaseHelper.instance;
 
+  @override
+  Future<double?> getAverageCompletedSeconds({String? moodTag}) async {
+    final db = await _databaseHelper.database;
+
+    final whereClause = moodTag == null
+        ? 'status = ? AND completedSeconds > 0'
+        : 'status = ? AND completedSeconds > 0 '
+              'AND moodTagSnapshot = ?';
+
+    final args = moodTag == null
+        ? <Object?>['finished']
+        : <Object?>['finished', moodTag];
+
+    final result = await db.query(
+      'SessionLog',
+      columns: ['AVG(completedSeconds) AS averageSeconds'],
+      where: whereClause,
+      whereArgs: args,
+    );
+
+    final average = result.first['averageSeconds'];
+
+    return (average as num?)?.toDouble();
+  }
+
+  @override
+  Future<int> getFinishedSessionCount({String? moodTag}) async {
+    final db = await _databaseHelper.database;
+
+    final whereClause = moodTag == null
+        ? 'status = ? AND completedSeconds > 0'
+        : 'status = ? AND completedSeconds > 0 '
+              'AND moodTagSnapshot = ?';
+
+    final args = moodTag == null
+        ? <Object?>['finished']
+        : <Object?>['finished', moodTag];
+
+    final result = await db.query(
+      'SessionLog',
+      columns: ['COUNT(*) AS sessionCount'],
+      where: whereClause,
+      whereArgs: args,
+    );
+
+    return (result.first['sessionCount'] as int?) ?? 0;
+  }
+
   // Create a new session log.
   @override
   Future<int> createSessionLog(SessionLog log) async {
