@@ -66,6 +66,20 @@ class FocusTimerNotifier extends Notifier<FocusTimerState> {
     );
   }
 
+  void configure(int plannedSeconds) {
+    if (plannedSeconds <= 0) {
+      return;
+    }
+
+    _timer?.cancel();
+
+    state = FocusTimerState(
+      plannedSeconds: plannedSeconds,
+      remainingSeconds: plannedSeconds,
+      status: TimerStatus.idle,
+    );
+  }
+
   void start() {
     if (state.status == TimerStatus.running ||
         state.remainingSeconds <= 0) {

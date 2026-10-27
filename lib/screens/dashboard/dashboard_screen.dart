@@ -446,17 +446,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     mood: preset.moodTag,
                     durationMinutes:
                         preset.plannedSeconds ~/ 60,
-                    onTap: () {
-                      // The next integration step will pass
-                      // this preset into FocusSessionScreen.
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              const FocusSessionScreen(),
-                        ),
-                      );
-                    },
+                   onTap: () {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => FocusSessionScreen(
+        preset: preset,
+      ),
+    ),
+  );
+},
                     onEdit: () {
                       _openEditPreset(preset);
                     },

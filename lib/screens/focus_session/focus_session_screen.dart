@@ -1,22 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../models/focus_preset.dart';
+import '../../models/session_log.dart';
+import '../../providers/repository_providers.dart';
 import '../../providers/settings_provider.dart';
 import '../../providers/timer_provider.dart';
 import '../../services/notification_service.dart';
 
 class FocusSessionScreen extends ConsumerStatefulWidget {
-  const FocusSessionScreen({super.key});
+  final FocusPreset preset;
+
+  const FocusSessionScreen({
+    super.key,
+    required this.preset,
+  });
 
   @override
   ConsumerState<FocusSessionScreen> createState() =>
       _FocusSessionScreenState();
 }
 
-class _FocusSessionScreenState extends ConsumerState<FocusSessionScreen>
+class _FocusSessionScreenState
+    extends ConsumerState<FocusSessionScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _completionController;
   late final Animation<double> _completionScale;
+
+  DateTime? _startedAt;
+  bool _sessionSaved = false;
 
   @override
   void initState() {
@@ -31,6 +43,10 @@ class _FocusSessionScreenState extends ConsumerState<FocusSessionScreen>
       parent: _completionController,
       curve: Curves.easeOutBack,
     );
+
+    ref
+        .read(focusTimerProvider.notifier)
+        .configure(widget.preset.plannedSeconds);
   }
 
   String _formatTime(int seconds) {
@@ -86,7 +102,11 @@ class _FocusSessionScreenState extends ConsumerState<FocusSessionScreen>
 
     if (shouldReset == true) {
       ref.read(focusTimerProvider.notifier).reset();
+
       _completionController.reset();
+
+      _startedAt = null;
+      _sessionSaved = false;
     }
   }
 
@@ -111,23 +131,90 @@ class _FocusSessionScreenState extends ConsumerState<FocusSessionScreen>
       return;
     }
 
-    await NotificationService.instance.showFocusCompleteNotification();
+    await NotificationService.instance
+        .showFocusCompleteNotification();
+  }
+
+  Future<void> _saveFinishedSession(
+    FocusTimerState timerState,
+  ) async {
+    if (_sessionSaved) {
+      return;
+    }
+
+    final presetId = widget.preset.id;
+
+    if (presetId == null) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Unable to save session because the preset is not saved.',
+          ),
+        ),
+      );
+
+      return;
+    }
+
+    _sessionSaved = true;
+
+    final completedSeconds =
+        timerState.plannedSeconds - timerState.remainingSeconds;
+
+    final log = SessionLog(
+      presetId: presetId,
+      startedAt: _startedAt ?? DateTime.now(),
+      completedSeconds: completedSeconds,
+      moodTagSnapshot: widget.preset.moodTag,
+      status: 'finished',
+      source: 'timer',
+    );
+
+    try {
+      final repository = ref.read(
+        sessionLogRepositoryProvider,
+      );
+
+      final id = await repository.createSessionLog(log);
+
+      if (id <= 0) {
+        throw Exception('Session log was not created.');
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Session finished and saved.',
+          ),
+        ),
+      );
+    } catch (error) {
+      _sessionSaved = false;
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Unable to save session: $error',
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _finishSession() async {
     ref.read(focusTimerProvider.notifier).finish();
-
-    if (!mounted) {
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Session finished.',
-        ),
-      ),
-    );
   }
 
   @override
@@ -139,7 +226,9 @@ class _FocusSessionScreenState extends ConsumerState<FocusSessionScreen>
   @override
   Widget build(BuildContext context) {
     final timerState = ref.watch(focusTimerProvider);
-    final timerNotifier = ref.read(focusTimerProvider.notifier);
+    final timerNotifier = ref.read(
+      focusTimerProvider.notifier,
+    );
 
     final settingsAsync = ref.watch(settingsProvider);
 
@@ -151,9 +240,18 @@ class _FocusSessionScreenState extends ConsumerState<FocusSessionScreen>
     ref.listen<FocusTimerState>(
       focusTimerProvider,
       (previous, next) {
+        if (previous?.status == TimerStatus.idle &&
+            next.status == TimerStatus.running) {
+          _startedAt = DateTime.now();
+          _sessionSaved = false;
+        }
+
         if (previous?.status != TimerStatus.finished &&
             next.status == TimerStatus.finished) {
           _playCompletionAnimation(reducedMotion);
+
+          _saveFinishedSession(next);
+
           _showCompletionNotificationIfEnabled();
         }
 
@@ -174,10 +272,10 @@ class _FocusSessionScreenState extends ConsumerState<FocusSessionScreen>
           children: [
             const SizedBox(height: 20),
 
-            const Text(
-              'Machine Learning Study',
+            Text(
+              widget.preset.label,
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
               ),
@@ -185,10 +283,10 @@ class _FocusSessionScreenState extends ConsumerState<FocusSessionScreen>
 
             const SizedBox(height: 8),
 
-            const Text(
-              'Mood: Focused',
+            Text(
+              'Mood: ${widget.preset.moodTag}',
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 16,
               ),
             ),
@@ -256,12 +354,14 @@ class _FocusSessionScreenState extends ConsumerState<FocusSessionScreen>
             const Spacer(),
 
             ElevatedButton.icon(
-              onPressed: timerState.status == TimerStatus.running ||
-                      timerState.status == TimerStatus.finished
-                  ? null
-                  : timerState.status == TimerStatus.paused
-                      ? timerNotifier.resume
-                      : timerNotifier.start,
+              onPressed:
+                  timerState.status == TimerStatus.running ||
+                          timerState.status == TimerStatus.finished
+                      ? null
+                      : timerState.status ==
+                              TimerStatus.paused
+                          ? timerNotifier.resume
+                          : timerNotifier.start,
               icon: const Icon(Icons.play_arrow),
               label: Text(
                 timerState.status == TimerStatus.paused
@@ -273,9 +373,10 @@ class _FocusSessionScreenState extends ConsumerState<FocusSessionScreen>
             const SizedBox(height: 12),
 
             OutlinedButton.icon(
-              onPressed: timerState.status == TimerStatus.running
-                  ? timerNotifier.pause
-                  : null,
+              onPressed:
+                  timerState.status == TimerStatus.running
+                      ? timerNotifier.pause
+                      : null,
               icon: const Icon(Icons.pause),
               label: const Text('Pause'),
             ),
@@ -294,8 +395,9 @@ class _FocusSessionScreenState extends ConsumerState<FocusSessionScreen>
             const SizedBox(height: 12),
 
             TextButton.icon(
-              onPressed:
-                  timerState.hasStarted ? _showResetDialog : null,
+              onPressed: timerState.hasStarted
+                  ? _showResetDialog
+                  : null,
               icon: const Icon(Icons.refresh),
               label: const Text('Reset'),
             ),
