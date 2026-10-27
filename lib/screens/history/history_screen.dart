@@ -195,7 +195,7 @@ class _HistoryScreenState
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Delete Session?'),
           content: const Text(
@@ -205,13 +205,19 @@ class _HistoryScreenState
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(context, false);
+                Navigator.pop(
+                  dialogContext,
+                  false,
+                );
               },
               child: const Text('Cancel'),
             ),
             ElevatedButton(
               onPressed: () {
-                Navigator.pop(context, true);
+                Navigator.pop(
+                  dialogContext,
+                  true,
+                );
               },
               child: const Text('Delete'),
             ),
@@ -279,37 +285,39 @@ class _HistoryScreenState
       return;
     }
 
-    final controller = TextEditingController(
-      text: session.note ?? '',
-    );
+    String noteValue = session.note ?? '';
 
     final newNote = await showDialog<String>(
       context: context,
-      builder: (context) {
+      builder: (dialogContext) {
         return AlertDialog(
           title: const Text('Edit Session Note'),
-          content: TextField(
-            controller: controller,
+          content: TextFormField(
+            initialValue: noteValue,
             maxLines: 3,
+            autofocus: true,
             decoration: const InputDecoration(
               labelText: 'Note',
               hintText:
                   'Add a short note about this session',
               border: OutlineInputBorder(),
             ),
+            onChanged: (value) {
+              noteValue = value;
+            },
           ),
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(context);
+                Navigator.pop(dialogContext);
               },
               child: const Text('Cancel'),
             ),
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(
-                  context,
-                  controller.text.trim(),
+                  dialogContext,
+                  noteValue.trim(),
                 );
               },
               child: const Text('Save'),
@@ -318,8 +326,6 @@ class _HistoryScreenState
         );
       },
     );
-
-    controller.dispose();
 
     if (newNote == null) {
       return;
@@ -506,7 +512,9 @@ class _HistoryScreenState
                         Icons.error_outline,
                         size: 42,
                       ),
+
                       const SizedBox(height: 12),
+
                       const Text(
                         'Unable to load history',
                         style: TextStyle(
@@ -514,12 +522,16 @@ class _HistoryScreenState
                           fontWeight: FontWeight.w600,
                         ),
                       ),
+
                       const SizedBox(height: 8),
+
                       Text(
                         _error!,
                         textAlign: TextAlign.center,
                       ),
+
                       const SizedBox(height: 12),
+
                       OutlinedButton(
                         onPressed: _loadHistory,
                         child: const Text('Try Again'),
@@ -541,7 +553,9 @@ class _HistoryScreenState
                         Icons.history,
                         size: 42,
                       ),
+
                       SizedBox(height: 12),
+
                       Text(
                         'No session history yet',
                         style: TextStyle(
@@ -549,7 +563,9 @@ class _HistoryScreenState
                           fontWeight: FontWeight.w600,
                         ),
                       ),
+
                       SizedBox(height: 6),
+
                       Text(
                         'Completed focus sessions '
                         'will appear here.',
