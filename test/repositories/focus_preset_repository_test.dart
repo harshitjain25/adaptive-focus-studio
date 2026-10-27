@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'dart:io';
+
 import 'package:adaptive_focus_studio/database/database_helper.dart';
 import 'package:adaptive_focus_studio/models/focus_preset.dart';
 import 'package:adaptive_focus_studio/repositories/sqlite_focus_preset_repository.dart';
@@ -8,10 +10,18 @@ import 'package:adaptive_focus_studio/repositories/sqlite_focus_preset_repositor
 void main() {
   late SQLiteFocusPresetRepository repository;
   late Database db;
+  late Directory testDirectory;
 
-  setUpAll(() {
+  setUpAll(() async {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
+
+    // Each test suite receives a unique database directory.
+    testDirectory = await Directory.systemTemp.createTemp(
+      'focus_preset_tests_',
+    );
+
+    await databaseFactory.setDatabasesPath(testDirectory.path);
   });
 
   setUp(() async {

@@ -1,15 +1,22 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
+import 'dart:io';
+
 import 'package:adaptive_focus_studio/database/database_helper.dart';
 
 void main() {
-  setUpAll(() {
-    // Initialize SQLite for desktop testing.
-    sqfliteFfiInit();
+  late Directory testDirectory;
 
-    // Use the FFI implementation instead of platform plugins.
+  setUpAll(() async {
+    sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
+
+    testDirectory = await Directory.systemTemp.createTemp(
+      'database_helper_tests_',
+    );
+
+    await databaseFactory.setDatabasesPath(testDirectory.path);
   });
 
   test('Database creates FocusPreset and SessionLog tables', () async {
