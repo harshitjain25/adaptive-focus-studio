@@ -3,20 +3,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../models/session_log.dart';
 import '../../providers/repository_providers.dart';
+import '../../services/insights_service.dart';
 import '../../services/session_export_service.dart';
 
 class HistoryScreen extends ConsumerStatefulWidget {
   const HistoryScreen({super.key});
 
   @override
-  ConsumerState<HistoryScreen> createState() =>
-      _HistoryScreenState();
+  ConsumerState<HistoryScreen> createState() => _HistoryScreenState();
 }
 
-class _HistoryScreenState
-    extends ConsumerState<HistoryScreen> {
-  final SessionExportService _exportService =
-      SessionExportService();
+class _HistoryScreenState extends ConsumerState<HistoryScreen> {
+  final SessionExportService _exportService = SessionExportService();
+
+  final InsightsService _insightsService = InsightsService();
 
   String _selectedMood = 'All';
 
@@ -28,27 +28,12 @@ class _HistoryScreenState
   int _finishedCount = 0;
   double? _averageSeconds;
 
-  final List<String> _moods = [
-    'All',
-    'Focused',
-    'Calm',
-    'Tired',
-    'Motivated',
-  ];
+  final List<String> _moods = ['All', 'Focused', 'Calm', 'Tired', 'Motivated'];
 
   @override
   void initState() {
     super.initState();
-
     _loadHistory();
-  }
-
-  String? get _repositoryMood {
-    if (_selectedMood == 'All') {
-      return null;
-    }
-
-    return _selectedMood;
   }
 
   List<SessionLog> get _filteredSessions {
@@ -60,9 +45,7 @@ class _HistoryScreenState
       return session.moodTagSnapshot == _selectedMood;
     }).toList();
 
-    sessions.sort(
-      (a, b) => b.startedAt.compareTo(a.startedAt),
-    );
+    sessions.sort((a, b) => b.startedAt.compareTo(a.startedAt));
 
     return sessions;
   }
@@ -76,22 +59,31 @@ class _HistoryScreenState
     }
 
     try {
-      final repository = ref.read(
-        sessionLogRepositoryProvider,
+      final repository = ref.read(sessionLogRepositoryProvider);
+
+      final sessions = await repository.getAllSessionLogs();
+
+      // Filter the sessions before sending them to the
+      // background insights calculation.
+      final sessionsForInsights = sessions.where((session) {
+        if (_selectedMood == 'All') {
+          return true;
+        }
+
+        return session.moodTagSnapshot == _selectedMood;
+      }).toList();
+
+      // InsightsService uses Flutter's compute() function,
+      // so this calculation runs outside the main UI isolate.
+      final insights = await _insightsService.calculateInsights(
+        sessionsForInsights,
       );
 
-      final sessions =
-          await repository.getAllSessionLogs();
+      final average = insights.completedCount == 0
+          ? null
+          : insights.averageMinutes * 60;
 
-      final average =
-          await repository.getAverageCompletedSeconds(
-        moodTag: _repositoryMood,
-      );
-
-      final count =
-          await repository.getFinishedSessionCount(
-        moodTag: _repositoryMood,
-      );
+      final count = insights.completedCount;
 
       if (!mounted) {
         return;
@@ -150,8 +142,7 @@ class _HistoryScreenState
 
   Future<void> _exportSummary() async {
     try {
-      final averageMinutes =
-          (_averageSeconds ?? 0) / 60;
+      final averageMinutes = (_averageSeconds ?? 0) / 60;
 
       final file = await _exportService.exportSummary(
         totalSessions: _finishedCount,
@@ -165,30 +156,19 @@ class _HistoryScreenState
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Summary exported successfully:\n${file.path}',
-          ),
-        ),
+        SnackBar(content: Text('Summary exported successfully:\n${file.path}')),
       );
     } catch (error) {
       if (!mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Export failed: $error',
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Export failed: $error')));
     }
   }
 
-  Future<void> _deleteSession(
-    SessionLog session,
-  ) async {
+  Future<void> _deleteSession(SessionLog session) async {
     if (session.id == null) {
       return;
     }
@@ -205,19 +185,13 @@ class _HistoryScreenState
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.pop(
-                  dialogContext,
-                  false,
-                );
+                Navigator.pop(dialogContext, false);
               },
               child: const Text('Cancel'),
             ),
             ElevatedButton(
               onPressed: () {
-                Navigator.pop(
-                  dialogContext,
-                  true,
-                );
+                Navigator.pop(dialogContext, true);
               },
               child: const Text('Delete'),
             ),
@@ -231,14 +205,9 @@ class _HistoryScreenState
     }
 
     try {
-      final repository = ref.read(
-        sessionLogRepositoryProvider,
-      );
+      final repository = ref.read(sessionLogRepositoryProvider);
 
-      final deletedRows =
-          await repository.deleteSessionLog(
-        session.id!,
-      );
+      final deletedRows = await repository.deleteSessionLog(session.id!);
 
       if (!mounted) {
         return;
@@ -246,21 +215,13 @@ class _HistoryScreenState
 
       if (deletedRows > 0) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Session deleted successfully.',
-            ),
-          ),
+          const SnackBar(content: Text('Session deleted successfully.')),
         );
 
         await _loadHistory();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Session could not be deleted.',
-            ),
-          ),
+          const SnackBar(content: Text('Session could not be deleted.')),
         );
       }
     } catch (error) {
@@ -269,18 +230,12 @@ class _HistoryScreenState
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Unable to delete session: $error',
-          ),
-        ),
+        SnackBar(content: Text('Unable to delete session: $error')),
       );
     }
   }
 
-  Future<void> _editNote(
-    SessionLog session,
-  ) async {
+  Future<void> _editNote(SessionLog session) async {
     if (session.id == null) {
       return;
     }
@@ -298,8 +253,7 @@ class _HistoryScreenState
             autofocus: true,
             decoration: const InputDecoration(
               labelText: 'Note',
-              hintText:
-                  'Add a short note about this session',
+              hintText: 'Add a short note about this session',
               border: OutlineInputBorder(),
             ),
             onChanged: (value) {
@@ -315,10 +269,7 @@ class _HistoryScreenState
             ),
             ElevatedButton(
               onPressed: () {
-                Navigator.pop(
-                  dialogContext,
-                  noteValue.trim(),
-                );
+                Navigator.pop(dialogContext, noteValue.trim());
               },
               child: const Text('Save'),
             ),
@@ -332,40 +283,25 @@ class _HistoryScreenState
     }
 
     try {
-      final repository = ref.read(
-        sessionLogRepositoryProvider,
-      );
+      final repository = ref.read(sessionLogRepositoryProvider);
 
-      final updatedSession = session.copyWith(
-        note: newNote,
-      );
+      final updatedSession = session.copyWith(note: newNote);
 
-      final updatedRows =
-          await repository.updateSessionLog(
-        updatedSession,
-      );
+      final updatedRows = await repository.updateSessionLog(updatedSession);
 
       if (!mounted) {
         return;
       }
 
       if (updatedRows > 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Session note updated.',
-            ),
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Session note updated.')));
 
         await _loadHistory();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Session could not be updated.',
-            ),
-          ),
+          const SnackBar(content: Text('Session could not be updated.')),
         );
       }
     } catch (error) {
@@ -374,11 +310,7 @@ class _HistoryScreenState
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Unable to update session: $error',
-          ),
-        ),
+        SnackBar(content: Text('Unable to update session: $error')),
       );
     }
   }
@@ -387,13 +319,10 @@ class _HistoryScreenState
   Widget build(BuildContext context) {
     final filteredSessions = _filteredSessions;
 
-    final averageMinutes =
-        (_averageSeconds ?? 0) / 60;
+    final averageMinutes = (_averageSeconds ?? 0) / 60;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('History & Insights'),
-      ),
+      appBar: AppBar(title: const Text('History & Insights')),
       body: RefreshIndicator(
         onRefresh: _loadHistory,
         child: ListView(
@@ -401,10 +330,7 @@ class _HistoryScreenState
           children: [
             const Text(
               'Your Progress',
-              style: TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
             ),
 
             const SizedBox(height: 16),
@@ -413,8 +339,7 @@ class _HistoryScreenState
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
-                  crossAxisAlignment:
-                      CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
                       'Average Completed Session',
@@ -431,9 +356,7 @@ class _HistoryScreenState
                     else if (_finishedCount == 0)
                       const Text(
                         'No completed sessions yet',
-                        style: TextStyle(
-                          fontSize: 16,
-                        ),
+                        style: TextStyle(fontSize: 16),
                       )
                     else
                       Text(
@@ -448,9 +371,7 @@ class _HistoryScreenState
 
                     Text(
                       'Sample count: $_finishedCount',
-                      style: const TextStyle(
-                        fontSize: 14,
-                      ),
+                      style: const TextStyle(fontSize: 14),
                     ),
                   ],
                 ),
@@ -466,10 +387,7 @@ class _HistoryScreenState
                 border: OutlineInputBorder(),
               ),
               items: _moods.map((mood) {
-                return DropdownMenuItem<String>(
-                  value: mood,
-                  child: Text(mood),
-                );
+                return DropdownMenuItem<String>(value: mood, child: Text(mood));
               }).toList(),
               onChanged: _isLoading
                   ? null
@@ -486,10 +404,7 @@ class _HistoryScreenState
 
             const Text(
               'Session History',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
 
             const SizedBox(height: 12),
@@ -497,9 +412,7 @@ class _HistoryScreenState
             if (_isLoading)
               const Padding(
                 padding: EdgeInsets.all(24),
-                child: Center(
-                  child: CircularProgressIndicator(),
-                ),
+                child: Center(child: CircularProgressIndicator()),
               ),
 
             if (!_isLoading && _error != null)
@@ -508,10 +421,7 @@ class _HistoryScreenState
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     children: [
-                      const Icon(
-                        Icons.error_outline,
-                        size: 42,
-                      ),
+                      const Icon(Icons.error_outline, size: 42),
 
                       const SizedBox(height: 12),
 
@@ -525,10 +435,7 @@ class _HistoryScreenState
 
                       const SizedBox(height: 8),
 
-                      Text(
-                        _error!,
-                        textAlign: TextAlign.center,
-                      ),
+                      Text(_error!, textAlign: TextAlign.center),
 
                       const SizedBox(height: 12),
 
@@ -541,18 +448,13 @@ class _HistoryScreenState
                 ),
               ),
 
-            if (!_isLoading &&
-                _error == null &&
-                filteredSessions.isEmpty)
+            if (!_isLoading && _error == null && filteredSessions.isEmpty)
               const Card(
                 child: Padding(
                   padding: EdgeInsets.all(20),
                   child: Column(
                     children: [
-                      Icon(
-                        Icons.history,
-                        size: 42,
-                      ),
+                      Icon(Icons.history, size: 42),
 
                       SizedBox(height: 12),
 
@@ -577,94 +479,70 @@ class _HistoryScreenState
               ),
 
             if (!_isLoading && _error == null)
-              ...filteredSessions.map(
-                (session) {
-                  return Card(
-                    margin: const EdgeInsets.only(
-                      bottom: 10,
+              ...filteredSessions.map((session) {
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      child: Icon(
+                        session.status.toLowerCase() == 'finished'
+                            ? Icons.check
+                            : Icons.timer,
+                      ),
                     ),
-                    child: ListTile(
-                      leading: CircleAvatar(
-                        child: Icon(
-                          session.status.toLowerCase() ==
-                                  'finished'
-                              ? Icons.check
-                              : Icons.timer,
+                    title: Text(
+                      session.moodTagSnapshot,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 4),
+
+                        Text(
+                          'Duration: '
+                          '${_formatDuration(session.completedSeconds)}',
                         ),
-                      ),
-                      title: Text(
-                        session.moodTagSnapshot,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
+
+                        Text(
+                          'Date: '
+                          '${_formatDate(session.startedAt)}',
                         ),
-                      ),
-                      subtitle: Column(
-                        crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                        children: [
+
+                        Text('Status: ${session.status}'),
+
+                        if (session.note != null &&
+                            session.note!.trim().isNotEmpty) ...[
                           const SizedBox(height: 4),
-
-                          Text(
-                            'Duration: '
-                            '${_formatDuration(session.completedSeconds)}',
-                          ),
-
-                          Text(
-                            'Date: '
-                            '${_formatDate(session.startedAt)}',
-                          ),
-
-                          Text(
-                            'Status: ${session.status}',
-                          ),
-
-                          if (session.note != null &&
-                              session.note!
-                                  .trim()
-                                  .isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              'Note: ${session.note}',
-                            ),
-                          ],
+                          Text('Note: ${session.note}'),
                         ],
-                      ),
-                      trailing:
-                          PopupMenuButton<String>(
-                        onSelected: (value) {
-                          if (value == 'edit') {
-                            _editNote(session);
-                          }
-
-                          if (value == 'delete') {
-                            _deleteSession(session);
-                          }
-                        },
-                        itemBuilder: (context) => const [
-                          PopupMenuItem(
-                            value: 'edit',
-                            child: Text('Edit Note'),
-                          ),
-                          PopupMenuItem(
-                            value: 'delete',
-                            child: Text('Delete'),
-                          ),
-                        ],
-                      ),
+                      ],
                     ),
-                  );
-                },
-              ),
+                    trailing: PopupMenuButton<String>(
+                      onSelected: (value) {
+                        if (value == 'edit') {
+                          _editNote(session);
+                        }
+
+                        if (value == 'delete') {
+                          _deleteSession(session);
+                        }
+                      },
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(value: 'edit', child: Text('Edit Note')),
+                        PopupMenuItem(value: 'delete', child: Text('Delete')),
+                      ],
+                    ),
+                  ),
+                );
+              }),
 
             const SizedBox(height: 24),
 
             ElevatedButton.icon(
-              onPressed:
-                  _isLoading ? null : _exportSummary,
+              onPressed: _isLoading ? null : _exportSummary,
               icon: const Icon(Icons.download),
-              label: const Text(
-                'Export Session Summary',
-              ),
+              label: const Text('Export Session Summary'),
             ),
 
             const SizedBox(height: 12),
@@ -673,9 +551,7 @@ class _HistoryScreenState
               'The exported file is stored locally '
               'on this device.',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 13,
-              ),
+              style: TextStyle(fontSize: 13),
             ),
           ],
         ),
