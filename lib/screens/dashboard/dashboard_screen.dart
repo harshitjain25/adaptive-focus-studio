@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../models/focus_preset.dart';
 import '../../models/session_log.dart';
+import '../../providers/repository_providers.dart';
 import '../../smart_helper/session_scout.dart';
 import '../../widgets/preset_card.dart';
 import '../../widgets/session_scout_card.dart';
@@ -9,11 +12,211 @@ import '../history/history_screen.dart';
 import '../preset_editor/preset_editor_screen.dart';
 import '../settings/settings_screen.dart';
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
+  ConsumerState<DashboardScreen> createState() =>
+      _DashboardScreenState();
+}
+
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  String _selectedMood = 'All';
+
+  bool _isLoadingPresets = true;
+  String? _presetError;
+
+  List<FocusPreset> _presets = [];
+
+  final List<String> _moods = [
+    'All',
+    'Focused',
+    'Calm',
+    'Tired',
+    'Motivated',
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+
+    _loadPresets();
+  }
+
+  Future<void> _loadPresets() async {
+    if (mounted) {
+      setState(() {
+        _isLoadingPresets = true;
+        _presetError = null;
+      });
+    }
+
+    try {
+      final repository = ref.read(
+        focusPresetRepositoryProvider,
+      );
+
+      final presets = await repository.getAllPresets();
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _presets = presets;
+        _isLoadingPresets = false;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _presetError = error.toString();
+        _isLoadingPresets = false;
+      });
+    }
+  }
+
+  List<FocusPreset> get _filteredPresets {
+    if (_selectedMood == 'All') {
+      return _presets;
+    }
+
+    return _presets.where((preset) {
+      return preset.moodTag == _selectedMood;
+    }).toList();
+  }
+
+  Future<void> _openCreatePreset() async {
+    final saved = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const PresetEditorScreen(),
+      ),
+    );
+
+    if (saved == true) {
+      await _loadPresets();
+    }
+  }
+
+  Future<void> _openEditPreset(
+    FocusPreset preset,
+  ) async {
+    final saved = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => PresetEditorScreen(
+          preset: preset,
+        ),
+      ),
+    );
+
+    if (saved == true) {
+      await _loadPresets();
+    }
+  }
+
+  Future<void> _deletePreset(
+    FocusPreset preset,
+  ) async {
+    if (preset.id == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Unable to delete this preset.',
+          ),
+        ),
+      );
+
+      return;
+    }
+
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete Preset?'),
+          content: Text(
+            'Delete "${preset.label}"?\n\n'
+            'A preset with existing session history '
+            'cannot be deleted.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context, false);
+              },
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context, true);
+              },
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete != true) {
+      return;
+    }
+
+    try {
+      final repository = ref.read(
+        focusPresetRepositoryProvider,
+      );
+
+      final deletedRows = await repository.deletePreset(
+        preset.id!,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      if (deletedRows > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Preset deleted successfully.',
+            ),
+          ),
+        );
+
+        await _loadPresets();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Preset could not be deleted.',
+            ),
+          ),
+        );
+      }
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'This preset cannot be deleted because '
+            'it has session history.',
+          ),
+        ),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // Temporary Session Scout sample data.
+    // This will be replaced with SessionLogRepository data next.
     final sampleSessions = [
       SessionLog(
         presetId: 1,
@@ -41,31 +244,40 @@ class DashboardScreen extends StatelessWidget {
       ),
     ];
 
+    final scoutMood = _selectedMood == 'All'
+        ? 'Focused'
+        : _selectedMood;
+
     final suggestedMinutes = SessionScout.suggestDuration(
       sessions: sampleSessions,
-      moodTag: 'Focused',
+      moodTag: scoutMood,
     );
+
+    final filteredPresets = _filteredPresets;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Adaptive Focus Studio'),
         actions: [
           IconButton(
+            tooltip: 'Settings',
             icon: const Icon(Icons.settings),
             onPressed: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => const SettingsScreen(),
+                  builder: (context) =>
+                      const SettingsScreen(),
                 ),
               );
             },
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
+      body: RefreshIndicator(
+        onRefresh: _loadPresets,
         child: ListView(
+          padding: const EdgeInsets.all(16),
           children: [
             const Text(
               'Your Focus Dashboard',
@@ -78,7 +290,8 @@ class DashboardScreen extends StatelessWidget {
             const SizedBox(height: 8),
 
             const Text(
-              'Plan a session, stay focused, and review your progress.',
+              'Plan a session, stay focused, '
+              'and review your progress.',
               style: TextStyle(
                 fontSize: 16,
               ),
@@ -92,7 +305,8 @@ class DashboardScreen extends StatelessWidget {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(
-                      'Suggested duration: $suggestedMinutes minutes',
+                      'Suggested duration: '
+                      '$suggestedMinutes minutes',
                     ),
                   ),
                 );
@@ -112,26 +326,22 @@ class DashboardScreen extends StatelessWidget {
             const SizedBox(height: 8),
 
             DropdownButtonFormField<String>(
-              initialValue: 'All',
-              items: const [
-                DropdownMenuItem(
-                  value: 'All',
-                  child: Text('All'),
-                ),
-                DropdownMenuItem(
-                  value: 'Focused',
-                  child: Text('Focused'),
-                ),
-                DropdownMenuItem(
-                  value: 'Calm',
-                  child: Text('Calm'),
-                ),
-                DropdownMenuItem(
-                  value: 'Tired',
-                  child: Text('Tired'),
-                ),
-              ],
-              onChanged: (value) {},
+              initialValue: _selectedMood,
+              items: _moods.map((mood) {
+                return DropdownMenuItem<String>(
+                  value: mood,
+                  child: Text(mood),
+                );
+              }).toList(),
+              onChanged: (value) {
+                if (value == null) {
+                  return;
+                }
+
+                setState(() {
+                  _selectedMood = value;
+                });
+              },
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
               ),
@@ -149,103 +359,135 @@ class DashboardScreen extends StatelessWidget {
 
             const SizedBox(height: 8),
 
-            PresetCard(
-              label: 'Machine Learning Study',
-              mood: 'Focused',
-              durationMinutes: 25,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const FocusSessionScreen(),
-                  ),
-                );
-              },
-              onEdit: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const PresetEditorScreen(),
-                  ),
-                );
-              },
-              onDelete: () {
-                showDialog(
-                  context: context,
-                  builder: (context) {
-                    return AlertDialog(
-                      title: const Text('Delete Preset?'),
-                      content: const Text(
-                        'This preset cannot be deleted if it still has session history.',
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                          },
-                          child: const Text('Cancel'),
-                        ),
-                        ElevatedButton(
-                          onPressed: () {
-                            Navigator.pop(context);
+            if (_isLoadingPresets)
+              const Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(
+                  child: CircularProgressIndicator(),
+                ),
+              ),
 
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Delete will be connected to the repository later.',
-                                ),
-                              ),
-                            );
-                          },
-                          child: const Text('Delete'),
+            if (!_isLoadingPresets &&
+                _presetError != null)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      const Icon(
+                        Icons.error_outline,
+                        size: 40,
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Unable to load presets.',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
                         ),
-                      ],
-                    );
-                  },
-                );
-              },
-            ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _presetError!,
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton(
+                        onPressed: _loadPresets,
+                        child: const Text('Try Again'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+            if (!_isLoadingPresets &&
+                _presetError == null &&
+                filteredPresets.isEmpty)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      const Icon(
+                        Icons.bookmark_border,
+                        size: 42,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        _selectedMood == 'All'
+                            ? 'No presets yet'
+                            : 'No $_selectedMood presets',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _selectedMood == 'All'
+                            ? 'Create your first focus preset.'
+                            : 'Try another mood or create a new preset.',
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+            if (!_isLoadingPresets &&
+                _presetError == null)
+              ...filteredPresets.map(
+                (preset) => Padding(
+                  padding: const EdgeInsets.only(
+                    bottom: 10,
+                  ),
+                  child: PresetCard(
+                    label: preset.label,
+                    mood: preset.moodTag,
+                    durationMinutes:
+                        preset.plannedSeconds ~/ 60,
+                    onTap: () {
+                      // The next integration step will pass
+                      // this preset into FocusSessionScreen.
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              const FocusSessionScreen(),
+                        ),
+                      );
+                    },
+                    onEdit: () {
+                      _openEditPreset(preset);
+                    },
+                    onDelete: () {
+                      _deletePreset(preset);
+                    },
+                  ),
+                ),
+              ),
 
             const SizedBox(height: 20),
 
             ElevatedButton.icon(
               icon: const Icon(Icons.add),
               label: const Text('Create Preset'),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const PresetEditorScreen(),
-                  ),
-                );
-              },
-            ),
-
-            const SizedBox(height: 12),
-
-            OutlinedButton.icon(
-              icon: const Icon(Icons.timer),
-              label: const Text('Focus Session'),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const FocusSessionScreen(),
-                  ),
-                );
-              },
+              onPressed: _openCreatePreset,
             ),
 
             const SizedBox(height: 12),
 
             OutlinedButton.icon(
               icon: const Icon(Icons.history),
-              label: const Text('History & Insights'),
+              label: const Text(
+                'History & Insights',
+              ),
               onPressed: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const HistoryScreen(),
+                    builder: (context) =>
+                        const HistoryScreen(),
                   ),
                 );
               },
