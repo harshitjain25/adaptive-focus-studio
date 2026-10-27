@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../services/notification_service.dart';
+
 import '../../providers/settings_provider.dart';
+import '../../services/notification_service.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -69,48 +70,52 @@ class SettingsScreen extends ConsumerWidget {
               const SizedBox(height: 16),
 
               SwitchListTile(
-  title: const Text('Session Reminders'),
-  subtitle: const Text(
-    'Allow local notifications for focus sessions.',
-  ),
-  value: settings.remindersEnabled,
-  onChanged: (value) async {
-    if (value) {
-      final granted =
-          await NotificationService.instance.requestPermission();
+                title: const Text('Session Reminders'),
+                subtitle: const Text(
+                  'Allow local notifications for completed focus sessions.',
+                ),
+                value: settings.remindersEnabled,
+                onChanged: (value) async {
+                  if (value) {
+                    final granted =
+                        await NotificationService.instance.requestPermission();
 
-      if (!context.mounted) return;
+                    if (!context.mounted) {
+                      return;
+                    }
 
-      if (!granted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Notification permission was not granted.',
-            ),
-          ),
-        );
+                    if (!granted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Notification permission was not granted.',
+                          ),
+                        ),
+                      );
 
-        return;
-      }
-    }
+                      return;
+                    }
+                  }
 
-    await ref
-        .read(settingsProvider.notifier)
-        .setRemindersEnabled(value);
+                  await ref
+                      .read(settingsProvider.notifier)
+                      .setRemindersEnabled(value);
 
-    if (!context.mounted) return;
+                  if (!context.mounted) {
+                    return;
+                  }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          value
-              ? 'Session reminders enabled.'
-              : 'Session reminders disabled.',
-        ),
-      ),
-    );
-  },
-),
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        value
+                            ? 'Session reminders enabled.'
+                            : 'Session reminders disabled.',
+                      ),
+                    ),
+                  );
+                },
+              ),
 
               const Divider(),
 
@@ -124,21 +129,6 @@ class SettingsScreen extends ConsumerWidget {
                   ref
                       .read(settingsProvider.notifier)
                       .setSoundEnabled(value);
-                },
-              ),
-
-              const Divider(),
-
-              SwitchListTile(
-                title: const Text('Reminders'),
-                subtitle: const Text(
-                  'Allow local focus reminders.',
-                ),
-                value: settings.remindersEnabled,
-                onChanged: (value) {
-                  ref
-                      .read(settingsProvider.notifier)
-                      .setRemindersEnabled(value);
                 },
               ),
 
