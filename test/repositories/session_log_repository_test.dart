@@ -184,4 +184,84 @@ void main() {
       1200,
     ]);
   });
+
+  test('Calculates average completed session duration', () async {
+    await sessionRepository.createSessionLog(makeLog(seconds: 1200));
+
+    await sessionRepository.createSessionLog(makeLog(seconds: 1800));
+
+    await sessionRepository.createSessionLog(makeLog(seconds: 2400));
+
+    final average = await sessionRepository.getAverageCompletedSeconds();
+
+    expect(average, 1800.0);
+  });
+
+  test('Calculates mood-filtered average duration', () async {
+    await sessionRepository.createSessionLog(
+      makeLog(seconds: 1200, mood: 'Focused'),
+    );
+
+    await sessionRepository.createSessionLog(
+      makeLog(seconds: 2400, mood: 'Focused'),
+    );
+
+    await sessionRepository.createSessionLog(
+      makeLog(seconds: 3000, mood: 'Calm'),
+    );
+
+    final average = await sessionRepository.getAverageCompletedSeconds(
+      moodTag: 'Focused',
+    );
+
+    expect(average, 1800.0);
+  });
+
+  test('Counts valid finished sessions', () async {
+    await sessionRepository.createSessionLog(
+      makeLog(seconds: 1500, status: 'finished'),
+    );
+
+    await sessionRepository.createSessionLog(
+      makeLog(seconds: 900, status: 'finished'),
+    );
+
+    await sessionRepository.createSessionLog(
+      makeLog(seconds: 600, status: 'cancelled'),
+    );
+
+    final count = await sessionRepository.getFinishedSessionCount();
+
+    expect(count, 2);
+  });
+
+  test('Excludes unfinished and zero-duration sessions', () async {
+    await sessionRepository.createSessionLog(
+      makeLog(seconds: 1800, status: 'finished'),
+    );
+
+    await sessionRepository.createSessionLog(
+      makeLog(seconds: 1200, status: 'paused'),
+    );
+
+    await sessionRepository.createSessionLog(
+      makeLog(seconds: 0, status: 'finished'),
+    );
+
+    final average = await sessionRepository.getAverageCompletedSeconds();
+
+    final count = await sessionRepository.getFinishedSessionCount();
+
+    expect(average, 1800.0);
+    expect(count, 1);
+  });
+
+  test('Returns empty statistics when no history exists', () async {
+    final average = await sessionRepository.getAverageCompletedSeconds();
+
+    final count = await sessionRepository.getFinishedSessionCount();
+
+    expect(average, isNull);
+    expect(count, 0);
+  });
 }
