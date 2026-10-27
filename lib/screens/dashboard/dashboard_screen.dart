@@ -16,8 +16,7 @@ class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  ConsumerState<DashboardScreen> createState() =>
-      _DashboardScreenState();
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
 }
 
 class _DashboardScreenState extends ConsumerState<DashboardScreen> {
@@ -32,13 +31,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   List<FocusPreset> _presets = [];
   List<SessionLog> _recentScoutSessions = [];
 
-  final List<String> _moods = [
-    'All',
-    'Focused',
-    'Calm',
-    'Tired',
-    'Motivated',
-  ];
+  final List<String> _moods = ['All', 'Focused', 'Calm', 'Tired', 'Motivated'];
 
   @override
   void initState() {
@@ -56,9 +49,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
 
     try {
-      final repository = ref.read(
-        focusPresetRepositoryProvider,
-      );
+      final repository = ref.read(focusPresetRepositoryProvider);
 
       final presets = await repository.getAllPresets();
 
@@ -103,12 +94,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
 
     try {
-      final repository = ref.read(
-        sessionLogRepositoryProvider,
-      );
+      final repository = ref.read(sessionLogRepositoryProvider);
 
-      final sessions =
-          await repository.getRecentFinishedSessions(
+      final sessions = await repository.getRecentFinishedSessions(
         moodTag: _selectedMood,
         limit: 3,
       );
@@ -171,9 +159,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   Future<void> _openCreatePreset() async {
     final saved = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(
-        builder: (context) => const PresetEditorScreen(),
-      ),
+      MaterialPageRoute(builder: (context) => const PresetEditorScreen()),
     );
 
     if (saved == true) {
@@ -181,15 +167,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
   }
 
-  Future<void> _openEditPreset(
-    FocusPreset preset,
-  ) async {
+  Future<void> _openEditPreset(FocusPreset preset) async {
     final saved = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (context) => PresetEditorScreen(
-          preset: preset,
-        ),
+        builder: (context) => PresetEditorScreen(preset: preset),
       ),
     );
 
@@ -198,16 +180,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
   }
 
-  Future<void> _deletePreset(
-    FocusPreset preset,
-  ) async {
+  Future<void> _deletePreset(FocusPreset preset) async {
     if (preset.id == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Unable to delete this preset.',
-          ),
-        ),
+        const SnackBar(content: Text('Unable to delete this preset.')),
       );
 
       return;
@@ -246,13 +222,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
 
     try {
-      final repository = ref.read(
-        focusPresetRepositoryProvider,
-      );
+      final repository = ref.read(focusPresetRepositoryProvider);
 
-      final deletedRows = await repository.deletePreset(
-        preset.id!,
-      );
+      final deletedRows = await repository.deletePreset(preset.id!);
 
       if (!mounted) {
         return;
@@ -260,21 +232,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
       if (deletedRows > 0) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Preset deleted successfully.',
-            ),
-          ),
+          const SnackBar(content: Text('Preset deleted successfully.')),
         );
 
         await _loadPresets();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Preset could not be deleted.',
-            ),
-          ),
+          const SnackBar(content: Text('Preset could not be deleted.')),
         );
       }
     } catch (error) {
@@ -308,10 +272,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      const SettingsScreen(),
-                ),
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
               );
             },
           ),
@@ -324,10 +285,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
           children: [
             const Text(
               'Your Focus Dashboard',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
             ),
 
             const SizedBox(height: 8),
@@ -335,9 +293,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             const Text(
               'Plan a session, stay focused, '
               'and review your progress.',
-              style: TextStyle(
-                fontSize: 16,
-              ),
+              style: TextStyle(fontSize: 16),
             ),
 
             const SizedBox(height: 24),
@@ -347,8 +303,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 child: Padding(
                   padding: EdgeInsets.all(16),
                   child: Column(
-                    crossAxisAlignment:
-                        CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Session Scout',
@@ -370,9 +325,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               const Card(
                 child: Padding(
                   padding: EdgeInsets.all(20),
-                  child: Center(
-                    child: CircularProgressIndicator(),
-                  ),
+                  child: Center(child: CircularProgressIndicator()),
                 ),
               )
             else if (_scoutError != null)
@@ -389,9 +342,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Unable to load recommendation.',
-                      ),
+                      const Text('Unable to load recommendation.'),
                       const SizedBox(height: 12),
                       OutlinedButton(
                         onPressed: _loadScoutSessions,
@@ -406,27 +357,31 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 suggestedMinutes: suggestedMinutes,
                 onApply: suggestedMinutes == null
                     ? null
-                    : () {
-                        ScaffoldMessenger.of(context)
-                            .showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              'Suggested duration: '
-                              '$suggestedMinutes minutes',
+                    : () async {
+                        final saved = await Navigator.push<bool>(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => PresetEditorScreen(
+                              initialMood: _selectedMood,
+                              initialDurationMinutes: suggestedMinutes,
                             ),
                           ),
                         );
+
+                        if (!mounted) {
+                          return;
+                        }
+
+                        if (saved == true) {
+                          await _refreshDashboard();
+                        }
                       },
               ),
-
             const SizedBox(height: 24),
 
             const Text(
               'Mood Filter',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
 
             const SizedBox(height: 8),
@@ -434,10 +389,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             DropdownButtonFormField<String>(
               initialValue: _selectedMood,
               items: _moods.map((mood) {
-                return DropdownMenuItem<String>(
-                  value: mood,
-                  child: Text(mood),
-                );
+                return DropdownMenuItem<String>(value: mood, child: Text(mood));
               }).toList(),
               onChanged: (value) {
                 if (value == null) {
@@ -446,19 +398,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
                 _changeMood(value);
               },
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(border: OutlineInputBorder()),
             ),
 
             const SizedBox(height: 24),
 
             const Text(
               'Your Presets',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
 
             const SizedBox(height: 8),
@@ -466,34 +413,23 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             if (_isLoadingPresets)
               const Padding(
                 padding: EdgeInsets.all(24),
-                child: Center(
-                  child: CircularProgressIndicator(),
-                ),
+                child: Center(child: CircularProgressIndicator()),
               ),
 
-            if (!_isLoadingPresets &&
-                _presetError != null)
+            if (!_isLoadingPresets && _presetError != null)
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     children: [
-                      const Icon(
-                        Icons.error_outline,
-                        size: 40,
-                      ),
+                      const Icon(Icons.error_outline, size: 40),
                       const SizedBox(height: 8),
                       const Text(
                         'Unable to load presets.',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        _presetError!,
-                        textAlign: TextAlign.center,
-                      ),
+                      Text(_presetError!, textAlign: TextAlign.center),
                       const SizedBox(height: 12),
                       OutlinedButton(
                         onPressed: _loadPresets,
@@ -512,10 +448,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   padding: const EdgeInsets.all(20),
                   child: Column(
                     children: [
-                      const Icon(
-                        Icons.bookmark_border,
-                        size: 42,
-                      ),
+                      const Icon(Icons.bookmark_border, size: 42),
                       const SizedBox(height: 12),
                       Text(
                         _selectedMood == 'All'
@@ -538,26 +471,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                 ),
               ),
 
-            if (!_isLoadingPresets &&
-                _presetError == null)
+            if (!_isLoadingPresets && _presetError == null)
               ...filteredPresets.map(
                 (preset) => Padding(
-                  padding: const EdgeInsets.only(
-                    bottom: 10,
-                  ),
+                  padding: const EdgeInsets.only(bottom: 10),
                   child: PresetCard(
                     label: preset.label,
                     mood: preset.moodTag,
-                    durationMinutes:
-                        preset.plannedSeconds ~/ 60,
+                    durationMinutes: preset.plannedSeconds ~/ 60,
                     onTap: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) =>
-                              FocusSessionScreen(
-                            preset: preset,
-                          ),
+                              FocusSessionScreen(preset: preset),
                         ),
                       );
                     },
@@ -583,15 +510,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
             OutlinedButton.icon(
               icon: const Icon(Icons.history),
-              label: const Text(
-                'History & Insights',
-              ),
+              label: const Text('History & Insights'),
               onPressed: () async {
                 await Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) =>
-                        const HistoryScreen(),
+                    builder: (context) => const HistoryScreen(),
                   ),
                 );
 

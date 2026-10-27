@@ -6,6 +6,8 @@ import '../../providers/repository_providers.dart';
 
 class PresetEditorScreen extends ConsumerStatefulWidget {
   final FocusPreset? preset;
+
+  // Optional starting values used by Session Scout.
   final String? initialMood;
   final int? initialDurationMinutes;
 
@@ -17,12 +19,10 @@ class PresetEditorScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<PresetEditorScreen> createState() =>
-      _PresetEditorScreenState();
+  ConsumerState<PresetEditorScreen> createState() => _PresetEditorScreenState();
 }
 
-class _PresetEditorScreenState
-    extends ConsumerState<PresetEditorScreen> {
+class _PresetEditorScreenState extends ConsumerState<PresetEditorScreen> {
   final _formKey = GlobalKey<FormState>();
   final _labelController = TextEditingController();
 
@@ -30,12 +30,7 @@ class _PresetEditorScreenState
   double _durationMinutes = 25;
   bool _isSaving = false;
 
-  final List<String> _moods = [
-    'Focused',
-    'Calm',
-    'Tired',
-    'Motivated',
-  ];
+  final List<String> _moods = ['Focused', 'Calm', 'Tired', 'Motivated'];
 
   bool get _isEditing => widget.preset != null;
 
@@ -46,20 +41,21 @@ class _PresetEditorScreenState
     final preset = widget.preset;
 
     if (preset != null) {
+      // Editing an existing preset.
       _labelController.text = preset.label;
       _selectedMood = preset.moodTag;
       _durationMinutes = preset.plannedSeconds / 60;
     } else {
-      if (widget.initialMood != null &&
-          _moods.contains(widget.initialMood)) {
+      // Creating a new preset.
+      // Session Scout may provide the initial mood and duration.
+      if (widget.initialMood != null && _moods.contains(widget.initialMood)) {
         _selectedMood = widget.initialMood;
       }
 
       if (widget.initialDurationMinutes != null) {
-        final duration = widget.initialDurationMinutes!;
-
-        _durationMinutes =
-            duration.clamp(10, 60).toDouble();
+        _durationMinutes = widget.initialDurationMinutes!
+            .clamp(10, 60)
+            .toDouble();
       }
     }
   }
@@ -84,9 +80,7 @@ class _PresetEditorScreenState
     });
 
     try {
-      final repository = ref.read(
-        focusPresetRepositoryProvider,
-      );
+      final repository = ref.read(focusPresetRepositoryProvider);
 
       final preset = FocusPreset(
         id: widget.preset?.id,
@@ -96,22 +90,16 @@ class _PresetEditorScreenState
       );
 
       if (_isEditing) {
-        final updatedRows =
-            await repository.updatePreset(preset);
+        final updatedRows = await repository.updatePreset(preset);
 
         if (updatedRows == 0) {
-          throw Exception(
-            'Preset could not be updated.',
-          );
+          throw Exception('Preset could not be updated.');
         }
       } else {
-        final newId =
-            await repository.createPreset(preset);
+        final newId = await repository.createPreset(preset);
 
         if (newId <= 0) {
-          throw Exception(
-            'Preset could not be created.',
-          );
+          throw Exception('Preset could not be created.');
         }
       }
 
@@ -135,13 +123,9 @@ class _PresetEditorScreenState
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Unable to save preset: $error',
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Unable to save preset: $error')));
     } finally {
       if (mounted) {
         setState(() {
@@ -155,11 +139,7 @@ class _PresetEditorScreenState
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          _isEditing
-              ? 'Edit Focus Preset'
-              : 'Create Focus Preset',
-        ),
+        title: Text(_isEditing ? 'Edit Focus Preset' : 'Create Focus Preset'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -172,13 +152,11 @@ class _PresetEditorScreenState
                 enabled: !_isSaving,
                 decoration: const InputDecoration(
                   labelText: 'Preset Name',
-                  hintText:
-                      'Example: Machine Learning Study',
+                  hintText: 'Example: Machine Learning Study',
                   border: OutlineInputBorder(),
                 ),
                 validator: (value) {
-                  if (value == null ||
-                      value.trim().isEmpty) {
+                  if (value == null || value.trim().isEmpty) {
                     return 'Please enter a preset name.';
                   }
 
@@ -219,8 +197,7 @@ class _PresetEditorScreenState
               const SizedBox(height: 24),
 
               Text(
-                'Duration: '
-                '${_durationMinutes.round()} minutes',
+                'Duration: ${_durationMinutes.round()} minutes',
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -232,8 +209,7 @@ class _PresetEditorScreenState
                 min: 10,
                 max: 60,
                 divisions: 10,
-                label:
-                    '${_durationMinutes.round()} min',
+                label: '${_durationMinutes.round()} min',
                 onChanged: _isSaving
                     ? null
                     : (value) {
@@ -246,22 +222,14 @@ class _PresetEditorScreenState
               const SizedBox(height: 24),
 
               ElevatedButton(
-                onPressed:
-                    _isSaving ? null : _savePreset,
+                onPressed: _isSaving ? null : _savePreset,
                 child: _isSaving
                     ? const SizedBox(
                         width: 22,
                         height: 22,
-                        child:
-                            CircularProgressIndicator(
-                          strokeWidth: 2,
-                        ),
+                        child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : Text(
-                        _isEditing
-                            ? 'Update Preset'
-                            : 'Save Preset',
-                      ),
+                    : Text(_isEditing ? 'Update Preset' : 'Save Preset'),
               ),
 
               const SizedBox(height: 12),
