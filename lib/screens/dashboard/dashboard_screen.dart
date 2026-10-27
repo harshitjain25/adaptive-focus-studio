@@ -26,7 +26,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
   bool _isLoadingPresets = true;
   String? _presetError;
 
+  bool _isLoadingScout = false;
+  String? _scoutError;
+
   List<FocusPreset> _presets = [];
+  List<SessionLog> _recentScoutSessions = [];
 
   final List<String> _moods = [
     'All',
@@ -78,6 +82,63 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     }
   }
 
+  Future<void> _loadScoutSessions() async {
+    if (_selectedMood == 'All') {
+      if (mounted) {
+        setState(() {
+          _recentScoutSessions = [];
+          _scoutError = null;
+          _isLoadingScout = false;
+        });
+      }
+
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _isLoadingScout = true;
+        _scoutError = null;
+      });
+    }
+
+    try {
+      final repository = ref.read(
+        sessionLogRepositoryProvider,
+      );
+
+      final sessions =
+          await repository.getRecentFinishedSessions(
+        moodTag: _selectedMood,
+        limit: 3,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _recentScoutSessions = sessions;
+        _isLoadingScout = false;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _scoutError = error.toString();
+        _recentScoutSessions = [];
+        _isLoadingScout = false;
+      });
+    }
+  }
+
+  Future<void> _refreshDashboard() async {
+    await _loadPresets();
+    await _loadScoutSessions();
+  }
+
   List<FocusPreset> get _filteredPresets {
     if (_selectedMood == 'All') {
       return _presets;
@@ -86,6 +147,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     return _presets.where((preset) {
       return preset.moodTag == _selectedMood;
     }).toList();
+  }
+
+  int? get _suggestedMinutes {
+    if (_selectedMood == 'All') {
+      return null;
+    }
+
+    return SessionScout.suggestDuration(
+      sessions: _recentScoutSessions,
+      moodTag: _selectedMood,
+    );
+  }
+
+  Future<void> _changeMood(String value) async {
+    setState(() {
+      _selectedMood = value;
+    });
+
+    await _loadScoutSessions();
   }
 
   Future<void> _openCreatePreset() async {
@@ -97,7 +177,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
 
     if (saved == true) {
-      await _loadPresets();
+      await _refreshDashboard();
     }
   }
 
@@ -114,7 +194,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     );
 
     if (saved == true) {
-      await _loadPresets();
+      await _refreshDashboard();
     }
   }
 
@@ -215,45 +295,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Temporary Session Scout sample data.
-    // This will be replaced with SessionLogRepository data next.
-    final sampleSessions = [
-      SessionLog(
-        presetId: 1,
-        startedAt: DateTime(2026, 10, 20),
-        completedSeconds: 20 * 60,
-        moodTagSnapshot: 'Focused',
-        status: 'finished',
-        source: 'timer',
-      ),
-      SessionLog(
-        presetId: 1,
-        startedAt: DateTime(2026, 10, 21),
-        completedSeconds: 30 * 60,
-        moodTagSnapshot: 'Focused',
-        status: 'finished',
-        source: 'timer',
-      ),
-      SessionLog(
-        presetId: 1,
-        startedAt: DateTime(2026, 10, 22),
-        completedSeconds: 25 * 60,
-        moodTagSnapshot: 'Focused',
-        status: 'finished',
-        source: 'timer',
-      ),
-    ];
-
-    final scoutMood = _selectedMood == 'All'
-        ? 'Focused'
-        : _selectedMood;
-
-    final suggestedMinutes = SessionScout.suggestDuration(
-      sessions: sampleSessions,
-      moodTag: scoutMood,
-    );
-
     final filteredPresets = _filteredPresets;
+    final suggestedMinutes = _suggestedMinutes;
 
     return Scaffold(
       appBar: AppBar(
@@ -275,7 +318,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: _loadPresets,
+        onRefresh: _refreshDashboard,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
@@ -299,19 +342,82 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
             const SizedBox(height: 24),
 
-            SessionScoutCard(
-              suggestedMinutes: suggestedMinutes,
-              onApply: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Suggested duration: '
-                      '$suggestedMinutes minutes',
-                    ),
+            if (_selectedMood == 'All')
+              const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Session Scout',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Select a mood to get a '
+                        'personalized duration suggestion.',
+                      ),
+                    ],
                   ),
-                );
-              },
-            ),
+                ),
+              )
+            else if (_isLoadingScout)
+              const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
+              )
+            else if (_scoutError != null)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'Session Scout',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Unable to load recommendation.',
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton(
+                        onPressed: _loadScoutSessions,
+                        child: const Text('Try Again'),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else
+              SessionScoutCard(
+                suggestedMinutes: suggestedMinutes,
+                onApply: suggestedMinutes == null
+                    ? null
+                    : () {
+                        ScaffoldMessenger.of(context)
+                            .showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Suggested duration: '
+                              '$suggestedMinutes minutes',
+                            ),
+                          ),
+                        );
+                      },
+              ),
 
             const SizedBox(height: 24),
 
@@ -338,9 +444,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                   return;
                 }
 
-                setState(() {
-                  _selectedMood = value;
-                });
+                _changeMood(value);
               },
               decoration: const InputDecoration(
                 border: OutlineInputBorder(),
@@ -446,16 +550,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
                     mood: preset.moodTag,
                     durationMinutes:
                         preset.plannedSeconds ~/ 60,
-                   onTap: () {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => FocusSessionScreen(
-        preset: preset,
-      ),
-    ),
-  );
-},
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              FocusSessionScreen(
+                            preset: preset,
+                          ),
+                        ),
+                      );
+                    },
                     onEdit: () {
                       _openEditPreset(preset);
                     },
@@ -481,14 +586,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               label: const Text(
                 'History & Insights',
               ),
-              onPressed: () {
-                Navigator.push(
+              onPressed: () async {
+                await Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) =>
                         const HistoryScreen(),
                   ),
                 );
+
+                if (!mounted) {
+                  return;
+                }
+
+                await _loadScoutSessions();
               },
             ),
           ],
