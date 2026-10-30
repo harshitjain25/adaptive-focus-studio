@@ -613,3 +613,46 @@ Cloud AI required: no
 ```
 
 The feature provides personalization while remaining transparent, private, offline, and fully controlled by the user.
+
+---
+
+## Graduate Held-Out Baseline Evaluation - Final Results
+
+A separate fixed synthetic held-out evaluation was created in `test/session_scout_heldout_test.dart`. It is separate from the normal Session Scout development unit-test examples. For each case, three previous finished sessions were used for prediction and a fourth value was treated as the held-out actual next-session duration. The fixed comparison baseline always predicts 25 minutes.
+
+| Case | Previous 3 Sessions | Held-Out Actual | Scout | Baseline | Scout Error | Baseline Error |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| 1 | 18, 22, 20 | 21 | 20 | 25 | 1 | 4 |
+| 2 | 32, 38, 35 | 36 | 35 | 25 | 1 | 11 |
+| 3 | 42, 50, 46 | 44 | 46 | 25 | 2 | 19 |
+| 4 | 12, 16, 14 | 15 | 14 | 25 | 1 | 10 |
+| 5 | 25, 30, 28 | 27 | 28 | 25 | 1 | 2 |
+
+All durations are minutes. Mean Absolute Error (MAE) is calculated as the average of `|actual - prediction|`.
+
+- **Session Scout total absolute error:** 6 minutes
+- **Session Scout MAE:** 1.20 minutes
+- **25-minute baseline total absolute error:** 46 minutes
+- **25-minute baseline MAE:** 9.20 minutes
+- **Sample size:** 5 held-out cases
+- **Session Scout lower-error cases:** 5 of 5
+
+These five cases are fixed synthetic evaluation fixtures, not real-user results. They demonstrate the behavior of the rule on this specific evaluation set and do not establish general real-world predictive performance. The cases were kept separate from the existing development unit-test examples and were not changed after viewing the comparison results.
+
+### Final Automated Test Evidence
+
+After adding the held-out evaluation, the full test suite reported:
+
+```text
++50: All tests passed!
+```
+
+Relevant files include:
+
+```text
+test/session_scout_test.dart
+test/session_scout_heldout_test.dart
+test/session_scout_card_test.dart
+```
+
+Previously measured project coverage was **30.07%** (326 of 1084 coverable lines). The held-out test was added after that coverage measurement, so 30.07% is retained as the previously measured value rather than presented as a newly recalculated figure.

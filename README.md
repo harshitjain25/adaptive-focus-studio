@@ -1,568 +1,140 @@
 # Adaptive Focus Studio
 
-Adaptive Focus Studio is an offline-first Flutter application for creating focus presets, running timed focus sessions, reviewing session history, and receiving local smart duration recommendations through Session Scout.
-
-The project is developed for **CSC 6360 - Mobile App Development, Section 002** at Georgia State University.
-
----
+Adaptive Focus Studio is an offline Flutter study-session application created for CSC 6360 - Mobile App Development at Georgia State University.
 
 ## Team
 
-**Team Name:** Boomers
-
-- Harshit Jain
-- Parsh Jadon
-
----
+**Team Name:** Boomers  
+**Harshit Jain:** 002916196  
+**Parsh Jadon:** 002936134  
+**Course:** CSC 6360 - Mobile App Development, Section 002  
+**Instructor:** Louis Henry  
+**Pathway:** Graduate
 
 ## Project Overview
 
-Adaptive Focus Studio helps users manage focused study or work sessions using reusable presets, local persistence, progress tracking, and personalized duration suggestions.
-
-The application is designed to work without a cloud backend.
-
-Core user flow:
-
-```text
-Create Preset
-    ↓
-Start Focus Session
-    ↓
-Pause / Resume / Finish / Reset
-    ↓
-Save Session History
-    ↓
-Review Insights
-    ↓
-Receive Session Scout Recommendation
-```
-
----
+The app helps users create reusable focus presets, run timed study sessions, review session history and insights, and manage local settings. It contains five main screens: Dashboard/Preset Catalog, Create/Edit Preset, Focus Session, History/Insights, and Settings.
 
 ## Main Features
 
-### Focus Presets
+- FocusPreset create, read, update, and delete
+- Focus timer with Start, Pause, Resume, Finish, and Reset
+- SessionLog history with mood filtering, note editing, and deletion
+- Background insight calculation using Flutter `compute()`
+- SharedPreferences persistence for default duration, reminders, and sound
+- Local session-completion notifications
+- Local session-summary file export
+- Riverpod state management
+- SQLite local persistence and repository-based data access
+- Implicit and explicit animations
+- Offline operation
+- Session Scout local smart helper
 
-Users can create reusable focus configurations containing:
+## Session Scout
 
-- preset name
-- mood
-- planned duration
+Session Scout is a local rule-based helper. For a selected mood, it uses the three most recent valid finished matching sessions, converts their durations to minutes, calculates the median, and clamps the result to 10-60 minutes. With fewer than three valid matching sessions it returns "Not enough history." Applying a suggestion only prefills the editor; the user can edit or ignore it.
 
-Preset data is stored locally using SQLite.
+The comparison baseline is a fixed 25-minute recommendation.
 
-### Focus Timer
+### Held-Out Evaluation
 
-The focus-session timer supports:
+A separate fixed synthetic held-out evaluation used five cases that were separate from the existing Session Scout development unit-test examples.
 
-- start
-- pause
-- resume
-- finish
-- reset
-- progress tracking
-- session status display
+| Method | Cases | MAE |
+| --- | ---: | ---: |
+| Session Scout | 5 | 1.20 min |
+| Fixed 25-minute baseline | 5 | 9.20 min |
 
-Timer state is managed using Riverpod.
+Session Scout had lower absolute error in all five fixed evaluation cases. These are synthetic evaluation fixtures, not real-user results, so they demonstrate behavior on this fixed set rather than general real-world predictive performance. See `AI_FEATURE.md` for full details.
 
-### History & Insights
-
-The History & Insights screen provides:
-
-- completed-session history
-- mood filtering
-- average completed duration
-- completed-session count
-- local summary export
-
-Some history values are currently awaiting final repository integration.
-
-### Session Scout
-
-Session Scout is the application's local smart-helper feature.
-
-It recommends a focus duration using the user's recent successful sessions.
-
-Rules:
-
-```text
-Use 3 most recent finished sessions
-Match the selected mood
-Calculate the median duration
-Clamp recommendation between 10 and 60 minutes
-Use 25 minutes as the baseline
-```
-
-If fewer than three valid matching sessions exist:
-
-```text
-Not enough history
-```
-
-Session Scout does not automatically start sessions or save data.
-
-The user must explicitly apply the recommendation and can still edit the duration afterward.
-
-For full details, see:
-
-[AI_FEATURE.md](AI_FEATURE.md)
-
----
-
-## Settings
-
-Application settings are persisted locally using SharedPreferences.
-
-Current settings include:
-
-- default focus duration
-- reduced motion
-- sound preference
-- session reminders
-
----
-
-## Local Notifications
-
-The application supports local focus-session completion notifications using:
-
-```text
-flutter_local_notifications
-```
-
-When reminders are enabled, the app can display a notification when a focus session reaches the finished state.
-
-No cloud notification service is required.
-
----
-
-## File Export
-
-The application includes a local file export feature.
-
-The History & Insights screen can export a text summary containing information such as:
-
-- total completed sessions
-- average duration
-- selected mood
-- Session Scout baseline
-- generation date
-
-File access is handled locally using:
-
-```text
-path_provider
-dart:io
-```
-
----
-
-## Background Processing
-
-Session insight calculations can run outside the main UI isolate using Flutter's:
-
-```text
-compute()
-```
-
-The `InsightsService` calculates:
-
-- completed-session count
-- average completed duration
-
-Cancelled, unfinished, and invalid sessions are ignored.
-
----
-
-## Animations
-
-The application includes both implicit and explicit Flutter animations.
-
-### Implicit Animation
-
-`AnimatedContainer` is used for focus-session status changes.
-
-### Explicit Animation
-
-`AnimationController` and `ScaleTransition` are used for the session-completion animation.
-
-Reduced-motion settings can disable or shorten animations.
-
----
-
-## Technology Stack
-
-- Flutter
-- Dart
-- Riverpod
-- SQLite
-- SharedPreferences
-- flutter_local_notifications
-- path_provider
-- Flutter Test
-
----
-
-## Architecture
-
-Adaptive Focus Studio follows a layered architecture.
-
-```text
-UI / Screens
-    ↓
-Riverpod State Management
-    ↓
-Business Logic / Services
-    ↓
-Repositories
-    ↓
-SQLite / SharedPreferences
-```
-
-The UI is kept separate from direct database access.
-
-Detailed architecture documentation is available in:
-
-[ARCHITECTURE.md](ARCHITECTURE.md)
-
----
-
-## Main Data Models
+## Local Data
 
 ### FocusPreset
-
-```text
-id
-label
-moodTag
-plannedSeconds
-```
+`id`, `label`, `moodTag`, `plannedSeconds`
 
 ### SessionLog
+`id`, `presetId`, `startedAt`, `completedSeconds`, `moodTagSnapshot`, `status`, `source`, `note`
+
+SQLite stores structured preset/session data. SharedPreferences stores lightweight settings.
+
+## Testing
+
+The current automated suite reports:
 
 ```text
-id
-presetId
-startedAt
-completedSeconds
-moodTagSnapshot
-status
-source
-note
++50: All tests passed!
 ```
 
-`SessionLog.presetId` references `FocusPreset.id`.
-
----
-
-## Project Structure
-
-A simplified structure is shown below:
-
-```text
-lib/
-├── database/
-│   └── database_helper.dart
-│
-├── models/
-│   ├── focus_preset.dart
-│   └── session_log.dart
-│
-├── providers/
-│   ├── settings_provider.dart
-│   └── timer_provider.dart
-│
-├── screens/
-│   ├── dashboard/
-│   ├── focus_session/
-│   ├── history/
-│   ├── preset_editor/
-│   └── settings/
-│
-├── services/
-│   ├── insights_service.dart
-│   ├── notification_service.dart
-│   ├── session_export_service.dart
-│   └── settings_service.dart
-│
-├── smart_helper/
-│   └── session_scout.dart
-│
-├── widgets/
-│   ├── preset_card.dart
-│   └── session_scout_card.dart
-│
-└── main.dart
-```
-
-Repository files may be added or updated as final SQLite integration is completed.
-
----
-
-## Offline-First Design
-
-Adaptive Focus Studio is designed to work without an internet connection.
-
-The application relies on:
-
-- SQLite
-- SharedPreferences
-- local files
-- local notifications
-- local calculations
-
-The application does not require:
-
-- Firebase
-- Firestore
-- cloud authentication
-- remote databases
-- cloud AI
-- external recommendation APIs
-
----
-
-## Setup
-
-### Requirements
-
-Install:
-
-- Flutter SDK
-- Dart SDK
-- Android Studio and/or Xcode
-- VS Code or another Flutter-compatible editor
-
-Verify Flutter installation:
-
-```bash
-flutter doctor
-```
-
----
-
-## Clone the Repository
-
-```bash
-git clone https://github.com/harshitjain25/adaptive-focus-studio.git
-cd adaptive-focus-studio
-```
-
----
-
-## Install Dependencies
-
-```bash
-flutter pub get
-```
-
----
-
-## Run the Application
-
-Check available devices:
-
-```bash
-flutter devices
-```
-
-Run on a selected device:
-
-```bash
-flutter run -d <device-id>
-```
-
-Or run using:
-
-```bash
-flutter run
-```
-
-For native functionality such as file-system operations and local notifications, testing on an Android or iOS device/emulator is recommended.
-
----
-
-## Static Analysis
-
-Run:
-
-```bash
-flutter analyze
-```
-
-The goal is:
-
-```text
-No issues found
-```
-
----
-
-## Run Tests
-
-Run all tests:
+Run tests:
 
 ```bash
 flutter test
 ```
 
-Run an individual test file:
+Generate coverage:
 
 ```bash
-flutter test test/session_scout_test.dart
+flutter test --coverage
 ```
 
-Example test areas include:
+Previously measured coverage was 326 lines hit out of 1084 coverable lines, or **30.07%**. The held-out evaluation test was added after that measurement, so this README does not claim that 30.07% is a newly recalculated value. The optional 80%+ coverage bonus is not claimed.
 
-- Session Scout algorithm
-- timer state management
-- background insight calculations
-- widgets
-- database behavior
+Testing covers database behavior, repositories, timer state, Session Scout, held-out comparison, insights, widgets, and integration behavior. Physical Android release testing and offline testing were also completed. Second-device/emulator acceptance evidence is being completed separately for the final submission package.
 
----
+## Offline Verification
 
-## Current Testing Strategy
+The main workflow was verified without internet access on Android, including presets, focus sessions, history, settings, and local data. GitHub, ClickUp, and YouTube are collaboration/submission services, not app backends.
 
-### Unit Tests
+## Release APK
 
-Used for:
+Build with:
 
-- timer logic
-- Session Scout
-- background insights
-- database constraints
+```bash
+flutter build apk --release
+```
 
-### Widget Tests
-
-Used for:
-
-- dashboard rendering
-- reusable widgets
-- screen behavior
-
-### Integration Tests
-
-The final end-to-end flow is intended to verify:
+Output:
 
 ```text
-Create Preset
-    ↓
-Start Session
-    ↓
-Finish Session
-    ↓
-Store SessionLog
-    ↓
-View History
-    ↓
-Generate Session Scout Recommendation
+build/app/outputs/flutter-apk/app-release.apk
 ```
 
----
+The release APK was installed and tested successfully on Android.
 
-## Persistence
+## Run the Project
 
-### SQLite
-
-Used for structured application data:
-
-- FocusPreset
-- SessionLog
-
-### SharedPreferences
-
-Used for lightweight settings:
-
-- default duration
-- reduced motion
-- sound enabled
-- reminders enabled
-
-### Local Files
-
-Used for session-summary export.
-
----
-
-## Privacy
-
-Adaptive Focus Studio processes user focus data locally.
-
-Session Scout does not send focus history to external services.
-
-No user focus-history data is required to leave the device for recommendation generation.
-
----
-
-## Current Project Status
-
-Implemented:
-
-- five-screen Flutter application structure
-- preset editor UI and validation
-- Riverpod timer management
-- start / pause / resume / finish / reset workflow
-- persistent settings
-- reusable preset card
-- Session Scout algorithm
-- Session Scout UI
-- implicit animation
-- explicit completion animation
-- reduced-motion support
-- local file export
-- background insight processing
-- local notifications
-- unit tests
-- widget tests
-- architecture documentation
-- smart-feature documentation
-
-Final integration work includes connecting all screens to the completed SQLite repository layer and replacing temporary sample values with persisted application data.
-
----
+```bash
+git clone https://github.com/harshitjain25/adaptive-focus-studio.git
+cd adaptive-focus-studio
+flutter pub get
+flutter analyze
+flutter test
+flutter run
+```
 
 ## Documentation
 
-Additional project documentation:
+- `README.md`
+- `ARCHITECTURE.md`
+- `AI_FEATURE.md`
+- `Kanban_Contribution_Evidence.pdf` - add when the final evidence PDF is completed
 
-- [ARCHITECTURE.md](ARCHITECTURE.md)
-- [AI_FEATURE.md](AI_FEATURE.md)
+## Project Links
 
----
+**GitHub:** https://github.com/harshitjain25/adaptive-focus-studio  
+**ClickUp:** https://app.clickup.com/90141778423/v/l/li/901422381505  
+**YouTube:** Add the final accessible presentation link after upload.
 
-## Development Workflow
+## Contribution Summary
 
-The team uses feature branches and pull requests.
+### Harshit Jain
+UI and five-screen workflow, wireframes, Riverpod, timer workflow, Session Scout implementation/evaluation, History/Insights integration, settings, notifications, animations, release/device verification, ClickUp coordination, and final documentation/presentation preparation.
 
-Example:
+### Parsh Jadon
+SQLite/schema work, FocusPreset CRUD, SessionLog CRUD, repository/data-layer work, automated testing contributions, and second-device/emulator acceptance testing.
 
-```bash
-git checkout main
-git pull origin main
-git checkout -b feature-name
-```
+Both members participate in integration, review, applicable testing, and the final presentation.
 
-After completing and testing a feature:
+## Submission Status Note
 
-```bash
-git add .
-git commit -m "Meaningful commit message"
-git push -u origin feature-name
-```
-
-A pull request is then created with:
-
-```text
-base: main
-compare: feature-name
-```
-
----
-
-## Course
-
-**CSC 6360 - Mobile App Development**  
-**Section 002**  
-Georgia State University  
-Fall 2026
+The application implementation, release APK, primary Android verification, 50-test automated suite, and Session Scout held-out evaluation are complete. Final package items such as second-device evidence, Kanban contribution evidence, signed statement, approved proposal, presentation/video, YouTube link, and other course-required files should be added/verified before submission.
